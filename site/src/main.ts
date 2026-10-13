@@ -1,6 +1,5 @@
 import * as Plot from "@observablehq/plot";
-import { feature } from "topojson-client";
-import countries from "world-atlas/countries-50m.json";
+import geo from "./geo.json";
 
 type Row = Record<string, any>;
 interface Data {
@@ -431,9 +430,9 @@ function durations(d: Data) {
   );
 }
 
-const geo = feature(countries as any, (countries as any).objects.countries) as any;
-const neighbours = { type: "FeatureCollection", features: geo.features.filter((f: any) => ["Sweden", "Germany"].includes(f.properties.name)) };
-const denmark = { type: "FeatureCollection", features: geo.features.filter((f: any) => f.properties.name === "Denmark") };
+// Country outlines, pre-extracted by scripts/geo.ts
+const neighbours = { type: "FeatureCollection", features: geo.features.filter((f: any) => f.properties.name !== "Denmark") } as any;
+const denmark = { type: "FeatureCollection", features: geo.features.filter((f: any) => f.properties.name === "Denmark") } as any;
 
 // Small multiples: one panel per group, so each keeps its own colour and no
 // scatter needs more than one hue (all-pairs colour separation doesn't apply).
@@ -645,29 +644,44 @@ function table(d: Data) {
   const body = t.createTBody();
   const search = document.getElementById("search") as HTMLInputElement;
   const count = document.getElementById("table-count")!;
+  const wrap = t.parentElement!;
   const rows = [...d.points].sort((a, b) => b.created.localeCompare(a.created));
+  const row = (p: Point) => {
+    const tr = document.createElement("tr");
+    const cells: [string, string][] = [
+      [p.created, "muted"], [p.title, ""], [p.inferred ? `${p.group} (udledt)` : p.type, "muted"], [p.region_name, "muted"],
+      [String(p.n_updates), "num"], [p.minutes == null ? "–" : String(p.minutes), "num"],
+    ];
+    for (const [text, cls] of cells) {
+      const td = tr.insertCell();
+      td.textContent = text;
+      if (cls) td.className = cls;
+    }
+    return tr;
+  };
+  // Laying out all ~7k rows at once blocks the first paint, so rows are added
+  // in chunks as the scroll box nears its end
+  const CHUNK = 100;
+  let match: Point[] = [];
+  let shown = 0;
+  const more = () => {
+    body.append(...match.slice(shown, shown + CHUNK).map(row));
+    shown = Math.min(shown + CHUNK, match.length);
+  };
   const render = () => {
     const ql = search.value.toLowerCase();
-    const match = rows.filter((p) => !ql || p.title.toLowerCase().includes(ql) || (p.road ?? "").toLowerCase().includes(ql));
+    match = rows.filter((p) => !ql || p.title.toLowerCase().includes(ql) || (p.road ?? "").toLowerCase().includes(ql));
     count.textContent = `Viser ${match.length} af ${rows.length} meldinger`;
-    body.replaceChildren(
-      ...match.map((p) => {
-        const tr = document.createElement("tr");
-        const cells: [string, string][] = [
-          [p.created, "muted"], [p.title, ""], [p.inferred ? `${p.group} (udledt)` : p.type, "muted"], [p.region_name, "muted"],
-          [String(p.n_updates), "num"], [p.minutes == null ? "–" : String(p.minutes), "num"],
-        ];
-        for (const [text, cls] of cells) {
-          const td = tr.insertCell();
-          td.textContent = text;
-          if (cls) td.className = cls;
-        }
-        return tr;
-      }),
-    );
+    body.replaceChildren();
+    wrap.scrollTop = 0;
+    shown = 0;
+    more();
   };
   render();
   search.addEventListener("input", render);
+  wrap.addEventListener("scroll", () => {
+    if (shown < match.length && wrap.scrollTop + wrap.clientHeight > wrap.scrollHeight - 200) more();
+  });
 }
 
 const data: Data = await fetch(`${import.meta.env.BASE_URL}data.json`).then((r) => r.json());

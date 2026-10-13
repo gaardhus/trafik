@@ -19,6 +19,10 @@ scrape-full:
 analyze:
     uv run scripts/analyze.py data/posts.jsonl site/public/data.json
 
+# Re-extract the map outlines from world-atlas into site/src/geo.json
+geo:
+    cd site && bun scripts/geo.ts
+
 # Start the report dev server
 dev: analyze
     cd site && bun run dev

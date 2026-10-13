@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DR Trafik — pilotanalyse</title>
     <link rel="stylesheet" href="/src/style.css" />
+    <!-- Start fetching the data alongside the JS bundle instead of after it -->
+    <link rel="preload" href="./data.json" as="fetch" crossorigin />
   </head>
   <body>
     <main class="viz-root">
