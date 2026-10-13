@@ -60,7 +60,6 @@ body {
   padding: 40px 24px 64px;
 }
 header { margin-bottom: 24px; }
-.eyebrow { color: var(--text-muted); font-size: 13px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.06em; }
 h1 { font-size: 30px; margin: 0 0 8px; font-weight: 650; }
 .lede { color: var(--text-secondary); font-size: 16px; max-width: 70ch; margin: 0; line-height: 1.5; }
 h2 { font-size: 17px; margin: 0 0 2px; font-weight: 600; }
@@ -120,7 +119,8 @@ figure { margin: 0; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th { text-align: left; color: var(--text-muted); font-weight: 500; position: sticky; top: 0; background: var(--surface-1); padding: 6px 8px; border-bottom: 1px solid var(--baseline); }
 td { padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+th.num { text-align: right; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); white-space: nowrap; }
 td.muted { color: var(--text-secondary); white-space: nowrap; }
 footer { color: var(--text-muted); font-size: 12px; margin-top: 24px; }
 
@@ -139,15 +139,16 @@ footer { color: var(--text-muted); font-size: 12px; margin-top: 24px; }
 .table-wrap:has(> table:empty) { height: 480px; }
 /* Where the current text wraps to another line; the text comes from the data,
    so these are close rather than exact */
-@media (max-width: 675px) { #heat-note:empty { min-height: 4lh; } }
-@media (max-width: 550px) { #heat-note:empty { min-height: 5lh; } }
-@media (max-width: 505px) { .lede:empty { min-height: 4lh; } }
+@media (max-width: 650px) { #heat-note:empty { min-height: 4lh; } }
+@media (max-width: 590px) { .lede:empty { min-height: 4lh; } }
+@media (max-width: 510px) { #heat-note:empty { min-height: 5lh; } }
 @media (max-width: 460px) {
-  #weekly-legend:empty, #region-legend:empty, #types-legend:empty { min-height: 54px; }
+  #heat-legend:empty, #weekly-legend:empty, #region-legend:empty, #types-legend:empty { min-height: 54px; }
 }
-@media (max-width: 450px) { #heat-note:empty { min-height: 6lh; } }
-@media (max-width: 395px) { .lede:empty { min-height: 5lh; } }
-@media (max-width: 390px) { #heat-note:empty { min-height: 7lh; } }
+@media (max-width: 435px) { #heat-note:empty { min-height: 6lh; } }
+@media (max-width: 460px) { .lede:empty { min-height: 5lh; } }
+@media (max-width: 380px) { #heat-note:empty { min-height: 7lh; } }
+@media (max-width: 395px) { .lede:empty { min-height: 6lh; } }
 .map-placeholder { aspect-ratio: 5 / 4; }
 /* Table: one text-height bar per 31px row, below the header band */
 .table-wrap:has(> table:empty) {

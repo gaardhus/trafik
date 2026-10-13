@@ -145,8 +145,7 @@ def main() -> None:
             week=pl.col("week").cast(pl.String),
         )
     )
-    heat = df.group_by("weekday", "hour").len()
-    heat_acc = df.filter(pl.col("group") == "Uheld").group_by("weekday", "hour").len()
+    heat = df.group_by("weekday", "hour", "group").len()
     by_type = df.filter(~pl.col("inferred")).group_by("type", "group").len().sort("len", descending=True)
     region_group = df.group_by("region_name", "group").len()
     roads = (
@@ -216,7 +215,6 @@ def main() -> None:
         "group_order": group_order,
         "weekly": recs(weekly),
         "heat": recs(heat),
-        "heat_accidents": recs(heat_acc),
         "by_type": recs(by_type),
         "region_group": recs(region_group),
         "roads": recs(roads),

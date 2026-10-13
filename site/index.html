@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DR Trafik — pilotanalyse</title>
+    <title>Hvor og hvornår går trafikken i stå?</title>
     <link rel="stylesheet" href="/src/style.css" />
     <!-- Start fetching the data alongside the JS bundle instead of after it -->
     <link rel="preload" href="./data.json" as="fetch" crossorigin />
@@ -11,8 +11,7 @@
   <body>
     <main class="viz-root">
       <header>
-        <p class="eyebrow">Pilotanalyse · DR Trafik API</p>
-        <h1>Hvad melder DR's trafikredaktion om?</h1>
+        <h1>Hvor og hvornår går trafikken i stå?</h1>
         <p class="lede" id="lede"></p>
       </header>
 
@@ -26,14 +25,15 @@
 
       <section class="card">
         <h2>Hvornår skrives der?</h2>
-        <p class="sub">Antal nye meldinger pr. ugedag og time (dansk tid). Tomme felter = ingen meldinger.</p>
+        <p class="sub">Nye meldinger pr. ugedag og time (dansk tid). Tomme felter betyder ingen meldinger.</p>
+        <div class="legend" id="heat-legend"></div>
         <div id="heat" class="chart"></div>
         <p class="note" id="heat-note"></p>
       </section>
 
       <section class="card">
         <h2>Meldinger pr. uge</h2>
-        <p class="sub">Fordelt på hændelsestype. Før DR's omlægning i april 2026 er vejmeldingernes type udledt af overskriften. Første og sidste uge er kun delvist dækket (lysere).</p>
+        <p class="sub">Fordelt på hændelsestype. Før DR's omlægning i april 2026 er vejmeldingernes type udledt af overskriften. Første og sidste uge er kun delvist med (lysere).</p>
         <div class="legend" id="weekly-legend"></div>
         <div id="weekly" class="chart"></div>
       </section>
@@ -41,20 +41,20 @@
       <div class="grid2">
         <section class="card">
           <h2>Mest nævnte veje</h2>
-          <p class="sub">Vej udtrukket fra overskriften, delt i uheld og øvrige meldinger</p>
+          <p class="sub">Vejen er udtrukket af overskriften og delt i uheld og øvrige meldinger.</p>
           <div class="legend" id="roads-legend"></div>
           <div id="roads" class="chart"></div>
         </section>
         <section class="card">
           <h2>Hvor længe varer det?</h2>
-          <p class="sub">Minutter fra første melding til "ryddet/genåbnet" (ellers sidste opdatering). Logaritmisk akse.</p>
+          <p class="sub">Tid fra første melding, til vejen meldes ryddet eller genåbnet (ellers til sidste opdatering). Logaritmisk akse.</p>
           <div id="dur" class="chart"></div>
         </section>
       </div>
 
       <section class="card">
         <h2>Hvor sker det?</h2>
-        <p class="sub">Ét kort pr. hændelsestype. Grå prikker er de øvrige meldinger, til sammenligning.</p>
+        <p class="sub">Ét kort pr. hændelsestype. De grå prikker er de øvrige meldinger, til sammenligning.</p>
         <!-- One placeholder panel per group until the maps are drawn -->
         <div class="maps" id="maps">
           <div class="map-panel"><h3>&nbsp;</h3><div class="map-placeholder"></div></div>
@@ -68,13 +68,13 @@
       <div class="grid2">
         <section class="card">
           <h2>Typer pr. region</h2>
-          <p class="sub">Andel af regionens meldinger, blandt de viste typer</p>
+          <p class="sub">Andel af regionens meldinger blandt de viste typer.</p>
           <div class="legend" id="region-legend"></div>
           <div id="region" class="chart"></div>
         </section>
         <section class="card">
           <h2>Alle hændelsestyper</h2>
-          <p class="sub">DR's egen kategori, før gruppering. Vejmeldinger fra før april 2026 havde ingen og er ikke med.</p>
+          <p class="sub">DR's egne kategorier, før de er samlet i grupper. Vejmeldinger fra før april 2026 har ingen kategori og er ikke med.</p>
           <div class="legend" id="types-legend"></div>
           <div id="types" class="chart"></div>
         </section>
@@ -88,7 +88,7 @@
       </section>
 
       <footer>
-        <p>Kilde: api.dr.dk/trafik/posts (concluded=true). Vej og "ryddet"-tidspunkt er udtrukket fra fritekst med regulære udtryk, så de er tilnærmelser. Indtil 14. april 2026 havde DR kun "privat/offentlig" trafik; vejmeldingernes type er derfor udledt af overskriften med nøgleord. Tjekket mod DR's egne kategorier efter omlægningen stemmer det i ca. 80 % af tilfældene (uheld og havari ca. 93 %, kø og andet væsentligt lavere).</p>
+        <p>Kilde: DR's trafikmeldinger (api.dr.dk/trafik/posts), kun afsluttede meldinger. Siden opdateres dagligt. Vej og ryddet-tidspunkt er udtrukket af fritekst med regulære udtryk og er derfor tilnærmelser. Indtil 14. april 2026 skelnede DR kun mellem privat og offentlig trafik, så vejmeldingernes type er udledt af overskriften med nøgleord. Holdt op mod DR's egne kategorier efter omlægningen rammer det rigtigt i ca. 80 % af tilfældene (uheld og havari ca. 93 %, kø og andet væsentligt lavere).</p>
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>

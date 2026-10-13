@@ -5,30 +5,58 @@ type Row = Record<string, any>;
 interface Data {
   summary: Row;
   group_order: string[];
-  weekly: { week: string; group: string; len: number; partial: boolean; iso_week: number }[];
-  heat: { weekday: number; hour: number; len: number }[];
+  weekly: {
+    week: string;
+    group: string;
+    len: number;
+    partial: boolean;
+    iso_week: number;
+  }[];
+  heat: { weekday: number; hour: number; group: string; len: number }[];
   by_type: { type: string; group: string; len: number }[];
   region_group: { region_name: string; group: string; len: number }[];
-  roads: { road: string; n: number; uheld: number; median_clear: number | null; region: string }[];
+  roads: {
+    road: string;
+    n: number;
+    uheld: number;
+    median_clear: number | null;
+    region: string;
+  }[];
   durations: { group: string; minutes: number }[];
   dur_summary: Row[];
   points: {
-    id: string; lon: number; lat: number; group: string; type: string; title: string;
-    road: string | null; region_name: string; n_updates: number; created: string; minutes: number | null;
+    id: string;
+    lon: number;
+    lat: number;
+    group: string;
+    type: string;
+    title: string;
+    road: string | null;
+    region_name: string;
+    n_updates: number;
+    created: string;
+    minutes: number | null;
     inferred: boolean;
   }[];
 }
 
 const WEEKDAYS = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
-const css = (name: string) => getComputedStyle(document.querySelector(".viz-root")!).getPropertyValue(name).trim();
+const css = (name: string) =>
+  getComputedStyle(document.querySelector(".viz-root")!)
+    .getPropertyValue(name)
+    .trim();
 const fmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 1 });
 
 function colors(order: string[]) {
-  return { domain: order, range: order.map((_, i) => css(`--series-${i + 1}`)) };
+  return {
+    domain: order,
+    range: order.map((_, i) => css(`--series-${i + 1}`)),
+  };
 }
 
 // Each interactive legend filters only its own chart. Colours stay bound to the
 // full group order, so hiding one never repaints the rest.
+const hiddenHeat = new Set<string>();
 const hiddenWeekly = new Set<string>();
 const hiddenRegion = new Set<string>();
 const hiddenTypes = new Set<string>();
@@ -80,7 +108,11 @@ function toggleLegend(
       onChange,
       buttons: new Map(),
       doubleClick,
-      reset: Object.assign(document.createElement("button"), { type: "button", className: "reset", textContent: "Vis alle" }),
+      reset: Object.assign(document.createElement("button"), {
+        type: "button",
+        className: "reset",
+        textContent: "Vis alle",
+      }),
     };
     for (const { key, label } of items) {
       const b = document.createElement("button");
@@ -102,8 +134,10 @@ function toggleLegend(
       };
       b.addEventListener("click", (e) => {
         clearTimeout(state.pending);
-        if (!doubleClick || e.detail === 0) toggle(); // keyboard: no double-click to wait for
-        else if (e.detail === 1) state.pending = window.setTimeout(toggle, DOUBLE_CLICK_MS);
+        if (!doubleClick || e.detail === 0)
+          toggle(); // keyboard: no double-click to wait for
+        else if (e.detail === 1)
+          state.pending = window.setTimeout(toggle, DOUBLE_CLICK_MS);
         else if (e.detail === 2) solo();
       });
       state.buttons.set(key, b);
@@ -122,7 +156,9 @@ function toggleLegend(
     const b = st.buttons.get(key)!;
     const on = !hidden.has(key);
     b.setAttribute("aria-pressed", String(on));
-    b.title = `${on ? "Skjul" : "Vis"} ${label}` + (st.doubleClick ? ` · dobbeltklik for kun at vise ${label}` : "");
+    b.title =
+      `${on ? "Skjul" : "Vis"} ${label}` +
+      (st.doubleClick ? ` · dobbeltklik for kun at vise ${label}` : "");
     const sw = b.querySelector("i")!;
     sw.style.background = color;
     sw.style.borderColor = color;
@@ -130,7 +166,13 @@ function toggleLegend(
   st.reset.hidden = hidden.size === 0;
 }
 
-function groupLegend(id: string, d: Data, hidden: Set<string>, redraw: () => void, opts?: { doubleClick?: boolean }) {
+function groupLegend(
+  id: string,
+  d: Data,
+  hidden: Set<string>,
+  redraw: () => void,
+  opts?: { doubleClick?: boolean },
+) {
   const c = colors(d.group_order);
   toggleLegend(
     document.getElementById(id)!,
@@ -152,35 +194,72 @@ function width(id: string) {
 // Shared look: recessive axes, text tokens for ink
 function base(): Plot.PlotOptions {
   return {
-    style: { background: "transparent", color: css("--text-muted"), fontSize: "12px", fontFamily: "inherit" },
+    style: {
+      background: "transparent",
+      color: css("--text-muted"),
+      fontSize: "12px",
+      fontFamily: "inherit",
+    },
   };
 }
 
 function tiles(d: Data) {
   const s = d.summary;
   const acc = d.dur_summary.find((r) => r.group === "Uheld");
-  const weekdays = d.heat.filter((h) => h.weekday <= 5).reduce((a, h) => a + h.len, 0);
-  const weekend = d.heat.filter((h) => h.weekday > 5).reduce((a, h) => a + h.len, 0);
+  const weekdays = d.heat
+    .filter((h) => h.weekday <= 5)
+    .reduce((a, h) => a + h.len, 0);
+  const weekend = d.heat
+    .filter((h) => h.weekday > 5)
+    .reduce((a, h) => a + h.len, 0);
   const nWeeks = s.days / 7;
   // In the order of the tiles in index.html, which holds the labels
   const items = [
-    { value: s.n.toLocaleString("da-DK"), hint: `${fmt.format(s.days)} dage` },
-    { value: `${fmt.format(weekdays / (nWeeks * 5))} / ${fmt.format(weekend / (nWeeks * 2))}`, hint: "gennemsnit" },
-    { value: `${Math.round(s.accident_share * 100)} %`, hint: "af alle meldinger" },
-    { value: `${Math.round(acc?.median ?? 0)} min`, hint: `90 % inden ${Math.round(acc?.p90 ?? 0)} min` },
+    { value: s.n.toLocaleString("da-DK"), hint: `${Math.round(s.days)} dage` },
+    {
+      value: `${fmt.format(weekdays / (nWeeks * 5))} / ${fmt.format(weekend / (nWeeks * 2))}`,
+      hint: "gennemsnit",
+    },
+    {
+      value: `${Math.round(s.accident_share * 100)} %`,
+      hint: "af alle meldinger",
+    },
+    {
+      value: `${Math.round(acc?.median ?? 0)} min`,
+      hint: `90 % inden ${Math.round(acc?.p90 ?? 0)} min`,
+    },
   ];
   document.querySelectorAll("#tiles .tile").forEach((el, i) => {
     el.querySelector(".value")!.textContent = items[i].value;
     el.querySelector(".hint")!.textContent = items[i].hint;
   });
-  const start = new Date(s.start).toLocaleDateString("da-DK", { day: "numeric", month: "long" });
-  const end = new Date(s.end).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });
+  const date = (iso: string) =>
+    new Date(iso).toLocaleDateString("da-DK", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  const withinHour =
+    d.durations.filter((r) => r.minutes < 60).length / d.durations.length;
+  const longest = d.dur_summary.reduce((a, r) => (r.median > a.median ? r : a));
   document.getElementById("lede")!.textContent =
-    `${s.n} afsluttede trafikmeldinger fra ${start} til ${end}. ` +
-    `Omkring halvdelen er uheld, og de fleste er ryddet inden for en time. Togforstyrrelser trækker længst ud.`;
+    `${s.n.toLocaleString("da-DK")} afsluttede trafikmeldinger fra DR i perioden ${date(s.start)} til ${date(s.end)}. ` +
+    `${Math.round(s.accident_share * 100)} % er uheld, og ${Math.round(withinHour * 100)} % er afsluttet inden for en time. ` +
+    `Meldinger om ${longest.group.toLowerCase()} varer længst, med en median på ${duration(longest.median)}.`;
 }
 
 function heat(d: Data) {
+  groupLegend("heat-legend", d, hiddenHeat, () => heat(d));
+  // Sum the visible groups per cell; the colour scale follows what's shown
+  const cells = new Map<string, Row>();
+  for (const r of d.heat) {
+    if (hiddenHeat.has(r.group)) continue;
+    const key = `${r.weekday}-${r.hour}`;
+    const cell =
+      cells.get(key) ??
+      cells.set(key, { weekday: r.weekday, hour: r.hour, len: 0 }).get(key)!;
+    cell.len += r.len;
+  }
   const w = width("heat");
   mount(
     "heat",
@@ -190,24 +269,39 @@ function heat(d: Data) {
       height: 230,
       marginLeft: 40,
       padding: 0.06,
-      x: { label: null, domain: Array.from({ length: 24 }, (_, i) => i), tickFormat: (h: number) => `${String(h).padStart(2, "0")}` },
-      y: { label: null, domain: [1, 2, 3, 4, 5, 6, 7], tickFormat: (d: number) => WEEKDAYS[d - 1] },
-      color: { type: "linear", range: [css("--seq-lo"), css("--seq-hi")], legend: true, label: "Meldinger" },
+      x: {
+        label: null,
+        domain: Array.from({ length: 24 }, (_, i) => i),
+        tickFormat: (h: number) => `${String(h).padStart(2, "0")}`,
+      },
+      y: {
+        label: null,
+        domain: [1, 2, 3, 4, 5, 6, 7],
+        tickFormat: (d: number) => WEEKDAYS[d - 1],
+      },
+      color: {
+        type: "linear",
+        range: [css("--seq-lo"), css("--seq-hi")],
+        legend: true,
+        label: "Meldinger",
+      },
       marks: [
-        Plot.cell(d.heat, {
+        Plot.cell([...cells.values()], {
           x: "hour",
           y: "weekday",
           fill: "len",
           rx: 3,
           tip: { format: { x: false, y: false, fill: false } },
-          title: (r: Row) => `${WEEKDAYS[r.weekday - 1]} kl. ${String(r.hour).padStart(2, "0")}–${String(r.hour + 1).padStart(2, "0")}\n${r.len} meldinger`,
+          title: (r: Row) =>
+            `${WEEKDAYS[r.weekday - 1]} kl. ${String(r.hour).padStart(2, "0")}–${String(r.hour + 1).padStart(2, "0")}\n${r.len} meldinger`,
         }),
       ],
     }),
   );
 }
 
-const shortDate = (dt: Date, opts: Intl.DateTimeFormatOptions) => dt.toLocaleDateString("da-DK", opts);
+const shortDate = (dt: Date, opts: Intl.DateTimeFormatOptions) =>
+  dt.toLocaleDateString("da-DK", opts);
 
 function weekLabel(r: { week: string; iso_week: number; partial: boolean }) {
   const start = new Date(r.week);
@@ -241,11 +335,13 @@ function heatNote(d: Data) {
     while (len < 24 && quiet[(s + len) % 24]) len++;
     if (len > best.len) best = { start: s, len };
   }
-  const night = best.len ? ` Mellem kl. ${hh(best.start)} og ${hh((best.start + best.len) % 24)} er der næsten ingen meldinger.` : "";
+  const night = best.len
+    ? ` Mellem kl. ${hh(best.start)} og ${hh((best.start + best.len) % 24)} er der næsten ingen meldinger.`
+    : "";
   document.getElementById("heat-note")!.textContent =
     `På hverdage topper meldingerne i myldretiden, omkring kl. ${peak(5, 12)} og kl. ${peak(12, 20)}. ` +
     `I weekenden er der langt færre, spredt over dagen.${night} ` +
-    `Det afspejler både trafikken og redaktionens vagter. Uheld sker også om natten, så vi kan ikke skille de to ad.`;
+    `Mønsteret afspejler både trafikken og redaktionens vagter, og de to kan ikke skilles ad i data.`;
 }
 
 function weekly(d: Data) {
@@ -269,26 +365,34 @@ function weekly(d: Data) {
         tickFormat: (w: string, i: number) => {
           const dt = new Date(w);
           if (dt.getDate() > 7) return "";
-          return shortDate(dt, dt.getMonth() === 0 || i === firstLabel ? { month: "short", year: "numeric" } : { month: "short" });
+          return shortDate(
+            dt,
+            dt.getMonth() === 0 || i === firstLabel
+              ? { month: "short", year: "numeric" }
+              : { month: "short" },
+          );
         },
       },
       y: { label: null, grid: true, nice: true },
       color: c,
       marks: [
-        Plot.barY(d.weekly.filter((r) => !hiddenWeekly.has(r.group)), {
-          x: "week",
-          y: "len",
-          fill: "group",
-          // Partial first/last weeks are faded so their low totals don't read as a dip
-          fillOpacity: (r: Row) => (r.partial ? 0.45 : 1),
-          order: d.group_order,
-          insetTop: 1,
-          insetBottom: 1,
-          insetLeft: 1,
-          insetRight: 1,
-          tip: true,
-          title: (r: Row) => `${weekLabel(r as any)}\n${r.group}: ${r.len}`,
-        }),
+        Plot.barY(
+          d.weekly.filter((r) => !hiddenWeekly.has(r.group)),
+          {
+            x: "week",
+            y: "len",
+            fill: "group",
+            // Partial first/last weeks are faded so their low totals don't read as a dip
+            fillOpacity: (r: Row) => (r.partial ? 0.45 : 1),
+            order: d.group_order,
+            insetTop: 1,
+            insetBottom: 1,
+            insetLeft: 1,
+            insetRight: 1,
+            tip: true,
+            title: (r: Row) => `${weekLabel(r as any)}\n${r.group}: ${r.len}`,
+          },
+        ),
         Plot.ruleY([0], { stroke: css("--baseline") }),
         ...schemaMarker(d),
       ],
@@ -328,8 +432,20 @@ function schemaMarker(d: Data) {
 function roads(d: Data) {
   const top = d.roads.slice(0, 15);
   const long = top.flatMap((r) => [
-    { road: r.road, part: "Uheld", n: r.uheld, total: r.n, med: r.median_clear },
-    { road: r.road, part: "Øvrige", n: r.n - r.uheld, total: r.n, med: r.median_clear },
+    {
+      road: r.road,
+      part: "Uheld",
+      n: r.uheld,
+      total: r.n,
+      med: r.median_clear,
+    },
+    {
+      road: r.road,
+      part: "Øvrige",
+      n: r.n - r.uheld,
+      total: r.n,
+      med: r.median_clear,
+    },
   ]);
   const acc = css("--series-1");
   const rest = css("--seq-light");
@@ -346,7 +462,9 @@ function roads(d: Data) {
   // Total label tracks what's shown, so it always sits at the bar end
   const totals = top.map((r) => ({
     road: r.road,
-    n: visibleParts.filter((p) => p.road === r.road).reduce((a, p) => a + p.n, 0),
+    n: visibleParts
+      .filter((p) => p.road === r.road)
+      .reduce((a, p) => a + p.n, 0),
   }));
   mount(
     "roads",
@@ -370,9 +488,17 @@ function roads(d: Data) {
           insetLeft: 1,
           insetRight: 1,
           tip: true,
-          title: (r: Row) => `${r.road}\n${r.part}: ${r.n} af ${r.total}\nMedian varighed: ${r.med == null ? "–" : Math.round(r.med) + " min"}`,
+          title: (r: Row) =>
+            `${r.road}\n${r.part}: ${r.n} af ${r.total}\nMedian varighed: ${r.med == null ? "–" : Math.round(r.med) + " min"}`,
         }),
-        Plot.text(totals, { y: "road", x: "n", text: (r: Row) => String(r.n), dx: 6, textAnchor: "start", fill: css("--text-secondary") }),
+        Plot.text(totals, {
+          y: "road",
+          x: "n",
+          text: (r: Row) => String(r.n),
+          dx: 6,
+          textAnchor: "start",
+          fill: css("--text-secondary"),
+        }),
         Plot.ruleX([0], { stroke: css("--baseline") }),
       ],
     }),
@@ -400,7 +526,11 @@ function durations(d: Data) {
         // Grid and axis first so they sit behind the boxes
         Plot.gridX(DUR_TICKS, { stroke: css("--grid"), strokeOpacity: 1 }),
         // Units on the ticks instead of an axis label
-        Plot.axisX(DUR_TICKS, { label: null, tickFormat: (m: number) => (m === 0 ? "0" : m >= 60 ? `${m / 60} t` : `${m} min`) }),
+        Plot.axisX(DUR_TICKS, {
+          label: null,
+          tickFormat: (m: number) =>
+            m === 0 ? "0" : m >= 60 ? `${m / 60} t` : `${m} min`,
+        }),
         Plot.boxX(d.durations, {
           x: "minutes",
           y: "group",
@@ -411,20 +541,37 @@ function durations(d: Data) {
           insetBottom: 4,
         }),
         // Median as a surface-coloured cut through the box, legible on every hue
-        Plot.tickX(d.dur_summary, { x: "median", y: "group", stroke: surface, strokeWidth: 2, insetTop: 4, insetBottom: 4 }),
-        Plot.tip(d.dur_summary, Plot.pointerY({
-          y: "group",
+        Plot.tickX(d.dur_summary, {
           x: "median",
-          title: (r: Row) => `${r.group} (n=${r.n})\nMedian: ${Math.round(r.median)} min\n25–75 %: ${Math.round(r.p25)}–${Math.round(r.p75)} min\n90 %: ${Math.round(r.p90)} min`,
-        })),
+          y: "group",
+          stroke: surface,
+          strokeWidth: 2,
+          insetTop: 4,
+          insetBottom: 4,
+        }),
+        Plot.tip(
+          d.dur_summary,
+          Plot.pointerY({
+            y: "group",
+            x: "median",
+            title: (r: Row) =>
+              `${r.group} (n=${r.n})\nMedian: ${Math.round(r.median)} min\n25–75 %: ${Math.round(r.p25)}–${Math.round(r.p75)} min\n90 %: ${Math.round(r.p90)} min`,
+          }),
+        ),
       ],
     }),
   );
 }
 
 // Country outlines, pre-extracted by scripts/geo.ts
-const neighbours = { type: "FeatureCollection", features: geo.features.filter((f: any) => f.properties.name !== "Denmark") } as any;
-const denmark = { type: "FeatureCollection", features: geo.features.filter((f: any) => f.properties.name === "Denmark") } as any;
+const neighbours = {
+  type: "FeatureCollection",
+  features: geo.features.filter((f: any) => f.properties.name !== "Denmark"),
+} as any;
+const denmark = {
+  type: "FeatureCollection",
+  features: geo.features.filter((f: any) => f.properties.name === "Denmark"),
+} as any;
 
 // Small multiples: one panel per group, so each keeps its own colour and no
 // scatter needs more than one hue (all-pairs colour separation doesn't apply).
@@ -449,18 +596,42 @@ function maps(d: Data) {
     const count = document.createElement("span");
     count.className = "count";
     count.textContent = String(own.length);
-    h.append(swatch(c.range[d.group_order.indexOf(g)], true), document.createTextNode(g), count);
+    h.append(
+      swatch(c.range[d.group_order.indexOf(g)], true),
+      document.createTextNode(g),
+      count,
+    );
 
     const plot = Plot.plot({
       ...base(),
       width: w,
       height: Math.round(w * 0.8),
       margin: 0,
-      projection: { type: "transverse-mercator", rotate: [-10.5, -56], domain: { type: "MultiPoint", coordinates: [[8, 54.55], [12.7, 57.8]] } },
+      projection: {
+        type: "transverse-mercator",
+        rotate: [-10.5, -56],
+        domain: {
+          type: "MultiPoint",
+          coordinates: [
+            [8, 54.55],
+            [12.7, 57.8],
+          ],
+        },
+      },
       marks: [
         Plot.geo(neighbours, { fill: css("--land-other") }),
-        Plot.geo(denmark, { fill: css("--land"), stroke: css("--baseline"), strokeWidth: 0.5 }),
-        Plot.dot(others, { x: "lon", y: "lat", r: 1.5, fill: css("--text-muted"), fillOpacity: 0.35 }),
+        Plot.geo(denmark, {
+          fill: css("--land"),
+          stroke: css("--baseline"),
+          strokeWidth: 0.5,
+        }),
+        Plot.dot(others, {
+          x: "lon",
+          y: "lat",
+          r: 1.5,
+          fill: css("--text-muted"),
+          fillOpacity: 0.35,
+        }),
         Plot.dot(own, {
           x: "lon",
           y: "lat",
@@ -470,15 +641,18 @@ function maps(d: Data) {
           strokeWidth: 1.5,
         }),
         // Hovered dot lifts: larger, with an ink ring
-        Plot.dot(own, Plot.pointer({
-          x: "lon",
-          y: "lat",
-          maxRadius: 20,
-          r: 6.5,
-          fill: c.range[d.group_order.indexOf(g)],
-          stroke: css("--text-primary"),
-          strokeWidth: 2,
-        })),
+        Plot.dot(
+          own,
+          Plot.pointer({
+            x: "lon",
+            y: "lat",
+            maxRadius: 20,
+            r: 6.5,
+            fill: c.range[d.group_order.indexOf(g)],
+            stroke: css("--text-primary"),
+            strokeWidth: 2,
+          }),
+        ),
       ],
     });
     const color = c.range[d.group_order.indexOf(g)];
@@ -497,11 +671,26 @@ function maps(d: Data) {
 type Point = Data["points"][number];
 
 const TYPE_LABELS: Record<string, string> = {
-  ACCIDENT: "Uheld", BREAKDOWN: "Havareret køretøj", LORRY: "Lastbil", AUTOMOBILE: "Bil",
-  MC: "Motorcykel", QUEUE: "Kø", TRAIN: "Tog", LIGHTRAIL: "Letbane", METRO: "Metro",
-  BUS: "Bus", FERRY: "Færge", BLOCKED: "Spærret vej", CLEANUP: "Oprydning", FIRE: "Brand",
-  WIND: "Blæst", ROADWORK: "Vejarbejde", SLIPPERY: "Glat vej / spild", FLOOD: "Oversvømmelse",
-  PIG: "Dyr på vejen", EMERGENCY: "Politi / beredskab",
+  ACCIDENT: "Uheld",
+  BREAKDOWN: "Havareret køretøj",
+  LORRY: "Lastbil",
+  AUTOMOBILE: "Bil",
+  MC: "Motorcykel",
+  QUEUE: "Kø",
+  TRAIN: "Tog",
+  LIGHTRAIL: "Letbane",
+  METRO: "Metro",
+  BUS: "Bus",
+  FERRY: "Færge",
+  BLOCKED: "Spærret vej",
+  CLEANUP: "Oprydning",
+  FIRE: "Brand",
+  WIND: "Blæst",
+  ROADWORK: "Vejarbejde",
+  SLIPPERY: "Glat vej / spild",
+  FLOOD: "Oversvømmelse",
+  PIG: "Dyr på vejen",
+  EMERGENCY: "Politi / beredskab",
 };
 
 function duration(min: number) {
@@ -511,7 +700,10 @@ function duration(min: number) {
   return m ? `${h} t ${m} min` : `${h} t`;
 }
 
-const tooltip = Object.assign(document.createElement("div"), { className: "tooltip", role: "tooltip" });
+const tooltip = Object.assign(document.createElement("div"), {
+  className: "tooltip",
+  role: "tooltip",
+});
 tooltip.hidden = true;
 document.querySelector(".viz-root")!.append(tooltip);
 
@@ -527,10 +719,21 @@ function pointTooltip(p: Point, color: string) {
   const key = el("div", "tt-key");
   const line = el("i", "");
   line.style.background = color;
-  key.append(line, document.createTextNode(p.inferred ? `${p.group} · udledt af overskrift` : (TYPE_LABELS[p.type] ?? p.type)));
+  key.append(
+    line,
+    document.createTextNode(
+      p.inferred
+        ? `${p.group} · udledt af overskrift`
+        : (TYPE_LABELS[p.type] ?? p.type),
+    ),
+  );
 
   const when = new Date(p.created.replace(" ", "T")).toLocaleString("da-DK", {
-    weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   });
   const rows: [string, string][] = [["Tidspunkt", when]];
   if (p.minutes != null) rows.push(["Varighed", duration(p.minutes)]);
@@ -556,15 +759,19 @@ function moveTooltip(e: PointerEvent) {
   if (tooltip.hidden) return;
   const pad = 14;
   const { width: w, height: h } = tooltip.getBoundingClientRect();
-  const x = e.clientX + pad + w > innerWidth ? e.clientX - pad - w : e.clientX + pad;
-  const y = e.clientY + pad + h > innerHeight ? e.clientY - pad - h : e.clientY + pad;
+  const x =
+    e.clientX + pad + w > innerWidth ? e.clientX - pad - w : e.clientX + pad;
+  const y =
+    e.clientY + pad + h > innerHeight ? e.clientY - pad - h : e.clientY + pad;
   tooltip.style.transform = `translate(${Math.max(4, x)}px, ${Math.max(4, y)}px)`;
 }
 
 function regions(d: Data) {
   const c = colors(d.group_order);
   // Shares of 100 %: showing a single group would just fill every bar
-  groupLegend("region-legend", d, hiddenRegion, () => regions(d), { doubleClick: false });
+  groupLegend("region-legend", d, hiddenRegion, () => regions(d), {
+    doubleClick: false,
+  });
   mount(
     "region",
     Plot.plot({
@@ -572,23 +779,31 @@ function regions(d: Data) {
       width: width("region"),
       height: 140,
       marginLeft: 150,
-      x: { label: null, percent: true, tickFormat: (v: number) => `${v} %`, grid: true },
+      x: {
+        label: null,
+        percent: true,
+        tickFormat: (v: number) => `${v} %`,
+        grid: true,
+      },
       y: { label: null },
       color: c,
       marks: [
-        Plot.barX(d.region_group.filter((r) => !hiddenRegion.has(r.group)), Plot.stackX({
-          offset: "normalize",
-          order: d.group_order,
-          y: "region_name",
-          x: "len",
-          fill: "group",
-          insetLeft: 1,
-          insetRight: 1,
-          insetTop: 6,
-          insetBottom: 6,
-          tip: true,
-          title: (r: Row) => `${r.region_name}\n${r.group}: ${r.len}`,
-        })),
+        Plot.barX(
+          d.region_group.filter((r) => !hiddenRegion.has(r.group)),
+          Plot.stackX({
+            offset: "normalize",
+            order: d.group_order,
+            y: "region_name",
+            x: "len",
+            fill: "group",
+            insetLeft: 1,
+            insetRight: 1,
+            insetTop: 6,
+            insetBottom: 6,
+            tip: true,
+            title: (r: Row) => `${r.region_name}\n${r.group}: ${r.len}`,
+          }),
+        ),
         Plot.ruleX([0], { stroke: css("--baseline") }),
       ],
     }),
@@ -606,10 +821,14 @@ function types(d: Data) {
       ...base(),
       width: width("types"),
       height: rows.length * 20 + 30,
-      marginLeft: 100,
+      marginLeft: 130,
       marginRight: 36,
       x: { label: null, axis: null },
-      y: { label: null, domain: rows.map((r) => r.type) },
+      y: {
+        label: null,
+        domain: rows.map((r) => r.type),
+        tickFormat: (t: string) => TYPE_LABELS[t] ?? t,
+      },
       color: c,
       marks: [
         Plot.barX(rows, {
@@ -619,9 +838,17 @@ function types(d: Data) {
           insetTop: 3,
           insetBottom: 3,
           tip: true,
-          title: (r: Row) => `${r.type} · ${TYPE_LABELS[r.type] ?? r.type}\n${r.group}: ${r.len}`,
+          title: (r: Row) =>
+            `${TYPE_LABELS[r.type] ?? r.type} (${r.type})\n${r.group}: ${r.len}`,
         }),
-        Plot.text(rows, { y: "type", x: "len", text: (r: Row) => String(r.len), dx: 6, textAnchor: "start", fill: css("--text-secondary") }),
+        Plot.text(rows, {
+          y: "type",
+          x: "len",
+          text: (r: Row) => String(r.len),
+          dx: 6,
+          textAnchor: "start",
+          fill: css("--text-secondary"),
+        }),
         Plot.ruleX([0], { stroke: css("--baseline") }),
       ],
     }),
@@ -631,9 +858,18 @@ function types(d: Data) {
 function table(d: Data) {
   const t = document.getElementById("table") as HTMLTableElement;
   const head = t.createTHead().insertRow();
-  for (const h of ["Tid", "Overskrift", "Type", "Region", "Opd.", "Min."]) {
+  for (const [h, title] of [
+    ["Tid", ""],
+    ["Overskrift", ""],
+    ["Type", ""],
+    ["Region", ""],
+    ["Opd.", "Antal opdateringer"],
+    ["Varighed", ""],
+  ]) {
     const th = document.createElement("th");
     th.textContent = h;
+    if (title) th.title = title;
+    if (h === "Opd." || h === "Varighed") th.className = "num";
     head.append(th);
   }
   const body = t.createTBody();
@@ -644,8 +880,15 @@ function table(d: Data) {
   const row = (p: Point) => {
     const tr = document.createElement("tr");
     const cells: [string, string][] = [
-      [p.created, "muted"], [p.title, ""], [p.inferred ? `${p.group} (udledt)` : p.type, "muted"], [p.region_name, "muted"],
-      [String(p.n_updates), "num"], [p.minutes == null ? "–" : String(p.minutes), "num"],
+      [p.created, "muted"],
+      [p.title, ""],
+      [
+        p.inferred ? `${p.group} (udledt)` : (TYPE_LABELS[p.type] ?? p.type),
+        "muted",
+      ],
+      [p.region_name, "muted"],
+      [String(p.n_updates), "num"],
+      [p.minutes == null ? "–" : duration(p.minutes), "num"],
     ];
     for (const [text, cls] of cells) {
       const td = tr.insertCell();
@@ -665,8 +908,13 @@ function table(d: Data) {
   };
   const render = () => {
     const ql = search.value.toLowerCase();
-    match = rows.filter((p) => !ql || p.title.toLowerCase().includes(ql) || (p.road ?? "").toLowerCase().includes(ql));
-    count.textContent = `Viser ${match.length} af ${rows.length} meldinger`;
+    match = rows.filter(
+      (p) =>
+        !ql ||
+        p.title.toLowerCase().includes(ql) ||
+        (p.road ?? "").toLowerCase().includes(ql),
+    );
+    count.textContent = `Viser ${match.length.toLocaleString("da-DK")} af ${rows.length.toLocaleString("da-DK")} meldinger`;
     body.replaceChildren();
     wrap.scrollTop = 0;
     shown = 0;
@@ -675,11 +923,17 @@ function table(d: Data) {
   render();
   search.addEventListener("input", render);
   wrap.addEventListener("scroll", () => {
-    if (shown < match.length && wrap.scrollTop + wrap.clientHeight > wrap.scrollHeight - 200) more();
+    if (
+      shown < match.length &&
+      wrap.scrollTop + wrap.clientHeight > wrap.scrollHeight - 200
+    )
+      more();
   });
 }
 
-const data: Data = await fetch(`${import.meta.env.BASE_URL}data.json`).then((r) => r.json());
+const data: Data = await fetch(`${import.meta.env.BASE_URL}data.json`).then(
+  (r) => r.json(),
+);
 
 const drawCharts = () => {
   heat(data);
@@ -696,7 +950,10 @@ table(data);
 drawCharts();
 
 // Redraw on theme change and resize (colors are read from CSS vars at draw time)
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawCharts);
+matchMedia("(prefers-color-scheme: dark)").addEventListener(
+  "change",
+  drawCharts,
+);
 let raf = 0;
 addEventListener("resize", () => {
   cancelAnimationFrame(raf);
