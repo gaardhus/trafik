@@ -16,6 +16,7 @@ interface Data {
   points: {
     id: string; lon: number; lat: number; group: string; type: string; title: string;
     road: string | null; region_name: string; n_updates: number; created: string; minutes: number | null;
+    inferred: boolean;
   }[];
 }
 
@@ -177,7 +178,8 @@ function daily(d: Data) {
     Plot.plot({
       ...base(),
       width: width("daily"),
-      height: 260,
+      height: 270,
+      marginTop: 26,
       x: { type: "band", label: null, domain: [...new Set(d.daily.map((r) => r.date))], tickFormat: (s: string) => (s.endsWith("-01") || s.endsWith("-15") ? new Date(s).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") , tickSize: 0 },
       y: { label: null, grid: true, nice: true },
       color: c,
@@ -196,9 +198,37 @@ function daily(d: Data) {
           title: (r: Row) => `${r.date}\n${r.group}: ${r.len}`,
         }),
         Plot.ruleY([0], { stroke: css("--baseline") }),
+        ...schemaMarker(d),
       ],
     }),
   );
+}
+
+// Divider at DR's schema change: road categories to its left are inferred
+function schemaMarker(d: Data) {
+  const at = d.summary.schema_change?.slice(0, 10);
+  if (!at || !d.daily.some((r) => r.date === at)) return [];
+  return [
+    Plot.ruleX([at], { stroke: css("--text-secondary"), strokeWidth: 1 }),
+    Plot.text([at], {
+      x: (v: string) => v,
+      frameAnchor: "top",
+      dy: -4,
+      dx: -6,
+      textAnchor: "end",
+      fill: css("--text-secondary"),
+      text: () => "← type udledt af overskrift",
+    }),
+    Plot.text([at], {
+      x: (v: string) => v,
+      frameAnchor: "top",
+      dy: -4,
+      dx: 6,
+      textAnchor: "start",
+      fill: css("--text-secondary"),
+      text: () => "DR's kategorier →",
+    }),
+  ];
 }
 
 function roads(d: Data) {
@@ -398,7 +428,7 @@ function pointTooltip(p: Point, color: string) {
   const key = el("div", "tt-key");
   const line = el("i", "");
   line.style.background = color;
-  key.append(line, document.createTextNode(TYPE_LABELS[p.type] ?? p.type));
+  key.append(line, document.createTextNode(p.inferred ? `${p.group} · udledt af overskrift` : (TYPE_LABELS[p.type] ?? p.type)));
 
   const when = new Date(p.created.replace(" ", "T")).toLocaleString("da-DK", {
     weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
@@ -509,7 +539,7 @@ function table(d: Data) {
       ...match.map((p) => {
         const tr = document.createElement("tr");
         const cells: [string, string][] = [
-          [p.created, "muted"], [p.title, ""], [p.type, "muted"], [p.region_name, "muted"],
+          [p.created, "muted"], [p.title, ""], [p.inferred ? `${p.group} (udledt)` : p.type, "muted"], [p.region_name, "muted"],
           [String(p.n_updates), "num"], [p.minutes == null ? "–" : String(p.minutes), "num"],
         ];
         for (const [text, cls] of cells) {

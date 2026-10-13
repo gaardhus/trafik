@@ -36,6 +36,18 @@ ROAD = re.compile(
     r"|[A-ZÆØÅ][a-zæøå]+(?:broen|tunnelen))"
 )
 CLEARED = re.compile(r"ryddet|genåbnet|fjernet|overstået|afsluttet|kører igen|åben igen|normalt|væk")
+# Before DR's schema change (2026-04-14) posts only had type PRIVATE/PUBLIC and a
+# subtype (CAR, TRAIN, FERRY, ...); the API reports incidentType AUTOMOBILE for all
+# of them. Road posts from then get a group inferred from the headline. Checked
+# against post-change posts with real labels: ~80% agreement overall; precision
+# Uheld 93%, Havari 93%, Kollektiv 96%, Kø 58%, Andet 33%.
+HEADLINE_RULES = [
+    ("Kø", re.compile(r"^kø")),
+    ("Kollektiv trafik", re.compile(r"\btog|s-tog|togbus|letban|metro|\bbus|færge|sporskift|signalfejl")),
+    ("Uheld", re.compile(r"uheld|sammenstød|harmonika|påkør|kollision|trafikulykke")),
+    ("Havari", re.compile(r"havar|punkter|motorstop|i brand|brand i|væltet lastbil|lastbil")),
+    ("Kø", re.compile(r"\bkø")),
+]
 DIRECTION = re.compile(r"(nordgående|sydgående|østgående|vestgående|mod København|mod [A-ZÆØÅ]\w+)")
 
 
@@ -51,6 +63,22 @@ def norm_road(m: str | None) -> str | None:
     return m
 
 
+def infer_group(title: str) -> str:
+    t = title.lower()
+    return next((g for g, rx in HEADLINE_RULES if rx.search(t)), "Andet")
+
+
+def categorise(r: dict) -> tuple[str, str, bool]:
+    """(DR type, group, inferred) for a raw post, handling the legacy schema."""
+    sub = r.get("subtype")
+    # Posts from the switchover can carry both fields; a real incidentType wins
+    if sub is None or r["incidentType"] != "AUTOMOBILE":
+        return r["incidentType"], GROUPS.get(r["incidentType"], "Andet"), False
+    if sub != "CAR":
+        return sub, GROUPS.get(sub, "Kollektiv trafik"), False
+    return "VEJ (før 14/4-26)", infer_group(r["text"]), True
+
+
 def cleared_time(updates: list[dict]) -> str | None:
     """Earliest update that announces the incident is over."""
     hits = [u["createdTime"] for u in updates if CLEARED.search(u["text"].lower())]
@@ -63,10 +91,13 @@ def load() -> pl.DataFrame:
     for r in rows:
         m = ROAD.search(r["text"])
         lon, lat = r["location"][0]["coordinates"] if r["location"] else (None, None)
+        typ, group, inferred = categorise(r)
         recs.append(
             {
                 "id": r["_id"],
-                "type": r["incidentType"],
+                "type": typ,
+                "group": group,
+                "inferred": inferred,
                 "region": r["region"],
                 "title": r["text"],
                 "road": norm_road(m.group(1) if m else None),
@@ -85,7 +116,6 @@ def load() -> pl.DataFrame:
         [pl.col(c).str.to_datetime(time_zone="UTC").dt.convert_time_zone(TZ) for c in ts]
     )
     return df.with_columns(
-        group=pl.col("type").replace_strict(GROUPS, default="Andet"),
         region_name=pl.col("region").replace_strict(REGIONS, default=pl.col("region")),
         life_min=(pl.col("last_update") - pl.col("created")).dt.total_minutes(),
         clear_min=(pl.col("cleared") - pl.col("created")).dt.total_minutes(),
@@ -108,7 +138,7 @@ def main() -> None:
     )
     heat = df.group_by("weekday", "hour").len()
     heat_acc = df.filter(pl.col("group") == "Uheld").group_by("weekday", "hour").len()
-    by_type = df.group_by("type", "group").len().sort("len", descending=True)
+    by_type = df.filter(~pl.col("inferred")).group_by("type", "group").len().sort("len", descending=True)
     region_group = df.group_by("region_name", "group").len()
     roads = (
         df.drop_nulls("road")
@@ -153,6 +183,9 @@ def main() -> None:
         "share_with_cleared": round(df["cleared"].is_not_null().mean(), 3),
         "median_updates": df["n_updates"].median(),
         "accident_share": round((df["group"] == "Uheld").mean(), 3),
+        "n_inferred": int(df["inferred"].sum()),
+        # Last road post without a DR category; up to here groups are inferred
+        "schema_change": df.filter(pl.col("inferred"))["created"].max().isoformat() if df["inferred"].any() else None,
         "busiest_day": daily.group_by("date").agg(pl.col("len").sum()).sort("len", descending=True).row(0, named=True),
     }
 
@@ -160,7 +193,7 @@ def main() -> None:
         return frame.to_dicts()
 
     points = df.select(
-        "id", "lon", "lat", "group", "type", "title", "road", "region_name", "n_updates",
+        "id", "lon", "lat", "group", "type", "inferred", "title", "road", "region_name", "n_updates",
         created=pl.col("created").dt.strftime("%Y-%m-%d %H:%M"),
         minutes=pl.coalesce("clear_min", "life_min").round(0),
     )

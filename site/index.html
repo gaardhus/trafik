@@ -25,7 +25,7 @@
 
       <section class="card">
         <h2>Meldinger pr. dag</h2>
-        <p class="sub">Fordelt på hændelsestype</p>
+        <p class="sub">Fordelt på hændelsestype. Før DR's omlægning i april 2026 er vejmeldingernes type udledt af overskriften.</p>
         <div class="legend" id="daily-legend"></div>
         <div id="daily"></div>
       </section>
@@ -59,7 +59,7 @@
         </section>
         <section class="card">
           <h2>Alle hændelsestyper</h2>
-          <p class="sub">DR's egen kategori, før gruppering</p>
+          <p class="sub">DR's egen kategori, før gruppering. Vejmeldinger fra før april 2026 havde ingen og er ikke med.</p>
           <div id="types"></div>
         </section>
       </div>
@@ -72,7 +72,7 @@
       </section>
 
       <footer>
-        <p>Kilde: api.dr.dk/trafik/posts (concluded=true). Vej og "ryddet"-tidspunkt er udtrukket fra fritekst med regulære udtryk, så de er tilnærmelser.</p>
+        <p>Kilde: api.dr.dk/trafik/posts (concluded=true). Vej og "ryddet"-tidspunkt er udtrukket fra fritekst med regulære udtryk, så de er tilnærmelser. Indtil 14. april 2026 havde DR kun "privat/offentlig" trafik; vejmeldingernes type er derfor udledt af overskriften med nøgleord. Tjekket mod DR's egne kategorier efter omlægningen stemmer det i ca. 80 % af tilfældene (uheld og havari ca. 93 %, kø og andet væsentligt lavere).</p>
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
