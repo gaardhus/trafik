@@ -122,3 +122,24 @@ td { padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top
 td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 td.muted { color: var(--text-secondary); white-space: nowrap; }
 footer { color: var(--text-muted); font-size: 12px; margin-top: 24px; }
+
+/* Map tooltip: themed card, event first, facts as a label/value grid */
+.tooltip {
+  position: fixed; top: 0; left: 0; z-index: 10; pointer-events: none;
+  max-width: 300px; padding: 10px 12px;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: 12px; line-height: 1.4;
+}
+.tooltip[hidden] { display: none; }
+.tt-key { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); margin-bottom: 4px; }
+.tt-key i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+.tt-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; }
+.tt-grid dt { color: var(--text-muted); }
+.tt-grid dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* Plot's built-in tips (other charts): follow the theme instead of fixed white */
+.viz-root g[aria-label="tip"] { color: var(--text-primary); }
+.viz-root g[aria-label="tip"] path { fill: var(--surface-1); stroke: var(--baseline); }

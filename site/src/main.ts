@@ -287,7 +287,6 @@ const denmark = { type: "FeatureCollection", features: geo.features.filter((f: a
 // scatter needs more than one hue (all-pairs colour separation doesn't apply).
 function maps(d: Data) {
   const c = colors(d.group_order);
-  groupLegend("map-legend", d, true);
   const container = document.getElementById("maps")!;
   const visible = d.group_order.filter(shown);
   const pts = d.points.filter((p) => shown(p.group));
@@ -325,16 +324,95 @@ function maps(d: Data) {
           stroke: css("--surface-1"),
           strokeWidth: 1.5,
         }),
-        Plot.tip(own, Plot.pointer({
+        // Hovered dot lifts: larger, with an ink ring
+        Plot.dot(own, Plot.pointer({
           x: "lon",
           y: "lat",
           maxRadius: 20,
-          title: (p: Row) => `${p.title}\n${p.created} · ${p.type}${p.minutes != null ? ` · ${p.minutes} min` : ""}`,
+          r: 6.5,
+          fill: c.range[d.group_order.indexOf(g)],
+          stroke: css("--text-primary"),
+          strokeWidth: 2,
         })),
       ],
     });
+    const color = c.range[d.group_order.indexOf(g)];
+    plot.addEventListener("input", () => {
+      const p = (plot as any).value as Point | null;
+      if (p) showTooltip(pointTooltip(p, color));
+      else hideTooltip();
+    });
+    plot.addEventListener("pointermove", (e) => moveTooltip(e as PointerEvent));
+    plot.addEventListener("pointerleave", hideTooltip);
     panel.replaceChildren(h, plot);
   });
+}
+
+type Point = Data["points"][number];
+
+const TYPE_LABELS: Record<string, string> = {
+  ACCIDENT: "Uheld", BREAKDOWN: "Havareret køretøj", LORRY: "Lastbil", AUTOMOBILE: "Bil",
+  MC: "Motorcykel", QUEUE: "Kø", TRAIN: "Tog", LIGHTRAIL: "Letbane", METRO: "Metro",
+  BUS: "Bus", FERRY: "Færge", BLOCKED: "Spærret vej", CLEANUP: "Oprydning", FIRE: "Brand",
+  WIND: "Blæst", ROADWORK: "Vejarbejde", SLIPPERY: "Glat vej / spild", FLOOD: "Oversvømmelse",
+  PIG: "Dyr på vejen", EMERGENCY: "Politi / beredskab",
+};
+
+function duration(min: number) {
+  if (min < 60) return `${Math.round(min)} min`;
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return m ? `${h} t ${m} min` : `${h} t`;
+}
+
+const tooltip = Object.assign(document.createElement("div"), { className: "tooltip", role: "tooltip" });
+tooltip.hidden = true;
+document.querySelector(".viz-root")!.append(tooltip);
+
+function el(tag: string, cls: string, text?: string) {
+  const e = document.createElement(tag);
+  e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+/** Event first (what happened), then the facts as a small label/value grid. */
+function pointTooltip(p: Point, color: string) {
+  const key = el("div", "tt-key");
+  const line = el("i", "");
+  line.style.background = color;
+  key.append(line, document.createTextNode(TYPE_LABELS[p.type] ?? p.type));
+
+  const when = new Date(p.created.replace(" ", "T")).toLocaleString("da-DK", {
+    weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+  const rows: [string, string][] = [["Tidspunkt", when]];
+  if (p.minutes != null) rows.push(["Varighed", duration(p.minutes)]);
+  if (p.road) rows.push(["Vej", p.road]);
+  rows.push(["Region", p.region_name], ["Opdateringer", String(p.n_updates)]);
+
+  const grid = el("dl", "tt-grid");
+  for (const [k, v] of rows) grid.append(el("dt", "", k), el("dd", "", v));
+  return [key, el("div", "tt-title", p.title), grid];
+}
+
+function showTooltip(content: Node[]) {
+  tooltip.replaceChildren(...content);
+  tooltip.hidden = false;
+}
+
+function hideTooltip() {
+  tooltip.hidden = true;
+}
+
+// Follow the pointer, flipping to the other side near the viewport edges
+function moveTooltip(e: PointerEvent) {
+  if (tooltip.hidden) return;
+  const pad = 14;
+  const { width: w, height: h } = tooltip.getBoundingClientRect();
+  const x = e.clientX + pad + w > innerWidth ? e.clientX - pad - w : e.clientX + pad;
+  const y = e.clientY + pad + h > innerHeight ? e.clientY - pad - h : e.clientY + pad;
+  tooltip.style.transform = `translate(${Math.max(4, x)}px, ${Math.max(4, y)}px)`;
 }
 
 function regions(d: Data) {
