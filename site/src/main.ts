@@ -225,6 +225,38 @@ function weekLabel(r: { week: string; iso_week: number; partial: boolean }) {
   return `Uge ${r.iso_week} · ${range}${r.partial ? " (delvis uge)" : ""}`;
 }
 
+const hh = (h: number) => String(h).padStart(2, "0");
+
+// Commute peaks and the quiet night window, read from the data so the text stays true
+function heatNote(d: Data) {
+  const weekday = Array(24).fill(0);
+  const all = Array(24).fill(0);
+  for (const r of d.heat) {
+    all[r.hour] += r.len;
+    if (r.weekday <= 5) weekday[r.hour] += r.len;
+  }
+  const peak = (from: number, to: number) => {
+    const hours = Array.from({ length: to - from }, (_, i) => from + i);
+    const max = Math.max(...hours.map((h) => weekday[h]));
+    const top = hours.filter((h) => weekday[h] >= 0.9 * max);
+    return top.length > 1 ? `${hh(top[0])}–${hh(top.at(-1)! + 1)}` : hh(top[0]);
+  };
+  // Longest run of near-empty hours, wrapping past midnight
+  const quiet = all.map((n) => n < 0.01 * Math.max(...all));
+  let best = { start: 0, len: 0 };
+  for (let s = 0; s < 24; s++) {
+    if (!quiet[s] || quiet[(s + 23) % 24]) continue;
+    let len = 0;
+    while (len < 24 && quiet[(s + len) % 24]) len++;
+    if (len > best.len) best = { start: s, len };
+  }
+  const night = best.len ? ` Mellem kl. ${hh(best.start)} og ${hh((best.start + best.len) % 24)} er der næsten ingen meldinger.` : "";
+  document.getElementById("heat-note")!.textContent =
+    `På hverdage topper meldingerne i myldretiden, omkring kl. ${peak(5, 12)} og kl. ${peak(12, 20)}. ` +
+    `I weekenden er der langt færre, spredt over dagen.${night} ` +
+    `Det afspejler både trafikken og redaktionens vagter. Uheld sker også om natten, så vi kan ikke skille de to ad.`;
+}
+
 function weekly(d: Data) {
   const c = colors(d.group_order);
   groupLegend("weekly-legend", d, hiddenWeekly, () => weekly(d));
@@ -354,7 +386,7 @@ function roads(d: Data) {
   );
 }
 
-const DUR_TICKS = [5, 15, 30, 60, 240, 1440];
+const DUR_TICKS = [0, 5, 30, 60, 240, 1440];
 
 function durations(d: Data) {
   const c = colors(d.group_order);
@@ -367,13 +399,15 @@ function durations(d: Data) {
       height: 300,
       marginLeft: 120,
       marginRight: 30,
-      x: { type: "log", domain: [1, 3000], clamp: true },
+      // Symlog: logarithmic for long durations, linear near zero so 0 has a place
+      x: { type: "symlog", constant: 5, domain: [0, 3000], clamp: true },
       y: { label: null, domain: d.group_order },
       color: c,
       marks: [
-        // Grid and axis first so they sit behind the boxes. Explicit axis: Plot's log scale blanks some labels from a ticks array
+        // Grid and axis first so they sit behind the boxes
         Plot.gridX(DUR_TICKS, { stroke: css("--grid"), strokeOpacity: 1 }),
-        Plot.axisX(DUR_TICKS, { label: "minutter", tickSpacing: 20, tickFormat: (m: number) => (m >= 60 ? `${m / 60} t` : `${m}`) }),
+        // Units on the ticks instead of an axis label
+        Plot.axisX(DUR_TICKS, { label: null, tickFormat: (m: number) => (m === 0 ? "0" : m >= 60 ? `${m / 60} t` : `${m} min`) }),
         Plot.boxX(d.durations, {
           x: "minutes",
           y: "group",
@@ -646,6 +680,7 @@ const drawCharts = () => {
   types(data);
 };
 tiles(data);
+heatNote(data);
 table(data);
 drawCharts();
 
