@@ -970,10 +970,21 @@ document.getElementById("lang")!.addEventListener("click", (e) => {
 });
 
 // Redraw on theme change and resize (colors are read from CSS vars at draw time)
-matchMedia("(prefers-color-scheme: dark)").addEventListener(
-  "change",
-  drawCharts,
-);
+const setTheme = (theme: string) => {
+  document.documentElement.dataset.theme = theme;
+  applyStatic();
+  drawCharts();
+};
+document.getElementById("theme")!.addEventListener("click", () => {
+  const next =
+    document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("theme", next);
+  setTheme(next);
+});
+// Follow the system setting until the visitor picks a theme
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+  if (!localStorage.getItem("theme")) setTheme(e.matches ? "dark" : "light");
+});
 let raf = 0;
 addEventListener("resize", () => {
   cancelAnimationFrame(raf);

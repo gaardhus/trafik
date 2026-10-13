@@ -35,6 +35,8 @@ const da = {
     "DR's egne kategorier, før de er samlet i grupper. Vejmeldinger fra før april 2026 har ingen kategori og er ikke med.",
   tableTitle: "Alle meldinger",
   searchPlaceholder: "Søg i overskrifter, fx E45 eller Storebælt",
+  themeToDark: "Skift til mørkt tema",
+  themeToLight: "Skift til lyst tema",
   footer:
     "Kilde: DR's trafikmeldinger (api.dr.dk/trafik/posts), kun afsluttede meldinger. Siden opdateres dagligt. Vej og ryddet-tidspunkt er udtrukket af fritekst med regulære udtryk og er derfor tilnærmelser. Indtil 14. april 2026 skelnede DR kun mellem privat og offentlig trafik, så vejmeldingernes type er udledt af overskriften med nøgleord. Holdt op mod DR's egne kategorier efter omlægningen rammer det rigtigt i ca. 80 % af tilfældene (uheld og havari ca. 93 %, kø og andet væsentligt lavere).",
 
@@ -154,6 +156,8 @@ const en: typeof da = {
     "DR's own categories, before they are merged into groups. Road reports from before April 2026 have no category and are left out.",
   tableTitle: "All reports",
   searchPlaceholder: "Search headlines (in Danish), e.g. E45 or Storebælt",
+  themeToDark: "Switch to dark theme",
+  themeToLight: "Switch to light theme",
   footer:
     "Source: DR's traffic reports (api.dr.dk/trafik/posts), closed reports only. The page is updated daily. Road and cleared time are extracted from free text with regular expressions and are therefore approximations. Until 14 April 2026, DR only distinguished between private and public traffic, so the type of road reports is inferred from keywords in the headline. Checked against DR's own categories after the overhaul, this is right in about 80% of cases (accidents and breakdowns about 93%, queues and other considerably lower).",
 
@@ -282,4 +286,8 @@ export function applyStatic() {
     el.placeholder = t[el.dataset.i18nPlaceholder as keyof typeof t] as string;
   for (const b of document.querySelectorAll<HTMLButtonElement>("#lang button"))
     b.setAttribute("aria-pressed", String(b.value === lang));
+  const dark = document.documentElement.dataset.theme === "dark";
+  const theme = document.getElementById("theme")!;
+  theme.setAttribute("aria-label", dark ? t.themeToLight : t.themeToDark);
+  theme.title = theme.getAttribute("aria-label")!;
 }

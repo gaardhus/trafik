@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Hvor og hvornår går trafikken i stå?</title>
+    <!-- Theme before first paint: saved choice, else the system setting -->
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("theme") ??
+        (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    </script>
     <link rel="stylesheet" href="/src/style.css" />
     <!-- Start fetching the data alongside the JS bundle instead of after it -->
     <link rel="preload" href="./data.json" as="fetch" crossorigin />
@@ -13,9 +19,16 @@
       <header>
         <h1 data-i18n="title">Hvor og hvornår går trafikken i stå?</h1>
         <p class="lede" id="lede"></p>
-        <div class="lang" id="lang" role="group" aria-label="Sprog / Language">
-          <button type="button" value="da" lang="da" aria-pressed="true">Dansk</button>
-          <button type="button" value="en" lang="en" aria-pressed="false">English</button>
+        <div class="controls">
+          <div class="lang" id="lang" role="group" aria-label="Sprog / Language">
+            <button type="button" value="da" lang="da" aria-pressed="true">Dansk</button>
+            <button type="button" value="en" lang="en" aria-pressed="false">English</button>
+          </div>
+          <!-- Shows the theme it switches to: moon in light mode, sun in dark -->
+          <button type="button" class="theme" id="theme">
+            <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.8A5.8 5.8 0 0 1 6.2 2.5a5.8 5.8 0 1 0 7.3 7.3Z" /></svg>
+            <svg class="sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3" /></svg>
+          </button>
         </div>
       </header>
 
