@@ -83,7 +83,8 @@ h3 { font-size: 14px; margin: 20px 0 6px; font-weight: 600; color: var(--text-se
 @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
 .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
 .tile .label { font-size: 13px; color: var(--text-secondary); }
-.tile .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
+/* One line at any width: shrink rather than wrap on narrow phones */
+.tile .value { font-size: min(28px, 6.4vw); font-weight: 600; margin-top: 4px; white-space: nowrap; }
 .tile .hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; color: var(--text-secondary); margin: 0 0 8px -8px; }
@@ -122,6 +123,51 @@ td { padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top
 td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 td.muted { color: var(--text-secondary); white-space: nowrap; }
 footer { color: var(--text-muted); font-size: 12px; margin-top: 24px; }
+
+/* Placeholders: reserve each slot's rendered height until data arrives, so
+   nothing jumps on load. Chart heights mirror the Plot heights in main.ts. */
+.tile .value, .tile .hint, #table-count { min-height: 1lh; }
+.lede:empty { min-height: 3lh; }
+#heat-note:empty { min-height: 3lh; }
+.legend:empty { min-height: 25px; }
+#heat:empty { min-height: 280px; }
+#weekly:empty { min-height: 270px; }
+#roads:empty { min-height: 420px; }
+#dur:empty { min-height: 300px; }
+#region:empty { min-height: 140px; }
+#types:empty { min-height: 430px; }
+.table-wrap:has(> table:empty) { height: 480px; }
+/* Where the current text wraps to another line; the text comes from the data,
+   so these are close rather than exact */
+@media (max-width: 675px) { #heat-note:empty { min-height: 4lh; } }
+@media (max-width: 550px) { #heat-note:empty { min-height: 5lh; } }
+@media (max-width: 505px) { .lede:empty { min-height: 4lh; } }
+@media (max-width: 460px) {
+  #weekly-legend:empty, #region-legend:empty, #types-legend:empty { min-height: 54px; }
+}
+@media (max-width: 450px) { #heat-note:empty { min-height: 6lh; } }
+@media (max-width: 395px) { .lede:empty { min-height: 5lh; } }
+@media (max-width: 390px) { #heat-note:empty { min-height: 7lh; } }
+.map-placeholder { aspect-ratio: 5 / 4; }
+/* Table: one text-height bar per 31px row, below the header band */
+.table-wrap:has(> table:empty) {
+  background: linear-gradient(var(--grid) 0 15px, transparent 15px) 0 38px / 100% 31px repeat-y;
+  border-radius: 4px;
+  opacity: 0.5;
+  animation: placeholder 1.4s ease-in-out infinite alternate;
+}
+.chart:empty, .map-placeholder, .tile .value:empty {
+  border-radius: 8px;
+  background: var(--grid);
+  opacity: 0.5;
+  animation: placeholder 1.4s ease-in-out infinite alternate;
+}
+/* Same 4px + 1lh footprint as a filled value, drawn as a slimmer bar */
+.tile .value:empty { margin-top: 8px; min-height: calc(1lh - 4px); width: 60%; }
+@keyframes placeholder { to { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .chart:empty, .map-placeholder, .tile .value:empty, .table-wrap:has(> table:empty) { animation: none; }
+}
 
 /* Map tooltip: themed card, event first, facts as a label/value grid */
 .tooltip {

@@ -162,25 +162,17 @@ function tiles(d: Data) {
   const weekdays = d.heat.filter((h) => h.weekday <= 5).reduce((a, h) => a + h.len, 0);
   const weekend = d.heat.filter((h) => h.weekday > 5).reduce((a, h) => a + h.len, 0);
   const nWeeks = s.days / 7;
+  // In the order of the tiles in index.html, which holds the labels
   const items = [
-    { label: "Meldinger", value: s.n.toLocaleString("da-DK"), hint: `${fmt.format(s.days)} dage` },
-    { label: "Pr. hverdag / weekenddag", value: `${fmt.format(weekdays / (nWeeks * 5))} / ${fmt.format(weekend / (nWeeks * 2))}`, hint: "gennemsnit" },
-    { label: "Andel uheld", value: `${Math.round(s.accident_share * 100)} %`, hint: "af alle meldinger" },
-    { label: "Median varighed, uheld", value: `${Math.round(acc?.median ?? 0)} min`, hint: `90 % inden ${Math.round(acc?.p90 ?? 0)} min` },
+    { value: s.n.toLocaleString("da-DK"), hint: `${fmt.format(s.days)} dage` },
+    { value: `${fmt.format(weekdays / (nWeeks * 5))} / ${fmt.format(weekend / (nWeeks * 2))}`, hint: "gennemsnit" },
+    { value: `${Math.round(s.accident_share * 100)} %`, hint: "af alle meldinger" },
+    { value: `${Math.round(acc?.median ?? 0)} min`, hint: `90 % inden ${Math.round(acc?.p90 ?? 0)} min` },
   ];
-  document.getElementById("tiles")!.replaceChildren(
-    ...items.map((t) => {
-      const el = document.createElement("div");
-      el.className = "tile";
-      for (const [cls, text] of [["label", t.label], ["value", t.value], ["hint", t.hint]]) {
-        const c = document.createElement("div");
-        c.className = cls;
-        c.textContent = text;
-        el.append(c);
-      }
-      return el;
-    }),
-  );
+  document.querySelectorAll("#tiles .tile").forEach((el, i) => {
+    el.querySelector(".value")!.textContent = items[i].value;
+    el.querySelector(".hint")!.textContent = items[i].hint;
+  });
   const start = new Date(s.start).toLocaleDateString("da-DK", { day: "numeric", month: "long" });
   const end = new Date(s.end).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });
   document.getElementById("lede")!.textContent =
@@ -441,14 +433,16 @@ function maps(d: Data) {
   const container = document.getElementById("maps")!;
   const visible = d.group_order;
   const pts = d.points;
-  // Measure one grid column; panels are drawn at that width
-  container.replaceChildren(...visible.map(() => document.createElement("div")));
+  // Measure one grid column on the current panels (placeholders on first draw);
+  // panels are drawn at that width. Emptying the grid first would shrink the
+  // page for a layout, and the browser would clamp a restored scroll position.
   const w = (container.firstElementChild as HTMLElement)?.clientWidth || 340;
+  const panels = visible.map(() => document.createElement("div"));
 
   visible.forEach((g, idx) => {
     const own = pts.filter((p) => p.group === g);
     const others = pts.filter((p) => p.group !== g);
-    const panel = container.children[idx] as HTMLElement;
+    const panel = panels[idx];
     panel.className = "map-panel";
 
     const h = document.createElement("h3");
@@ -497,6 +491,7 @@ function maps(d: Data) {
     plot.addEventListener("pointerleave", hideTooltip);
     panel.replaceChildren(h, plot);
   });
+  container.replaceChildren(...panels);
 }
 
 type Point = Data["points"][number];

@@ -16,12 +16,18 @@
         <p class="lede" id="lede"></p>
       </header>
 
-      <section class="tiles" id="tiles"></section>
+      <!-- Labels are static; main.ts fills in value and hint -->
+      <section class="tiles" id="tiles">
+        <div class="tile"><div class="label">Meldinger</div><div class="value"></div><div class="hint"></div></div>
+        <div class="tile"><div class="label">Pr. hverdag / weekenddag</div><div class="value"></div><div class="hint"></div></div>
+        <div class="tile"><div class="label">Andel uheld</div><div class="value"></div><div class="hint"></div></div>
+        <div class="tile"><div class="label">Median varighed, uheld</div><div class="value"></div><div class="hint"></div></div>
+      </section>
 
       <section class="card">
         <h2>Hvornår skrives der?</h2>
         <p class="sub">Antal nye meldinger pr. ugedag og time (dansk tid). Tomme felter = ingen meldinger.</p>
-        <div id="heat"></div>
+        <div id="heat" class="chart"></div>
         <p class="note" id="heat-note"></p>
       </section>
 
@@ -29,7 +35,7 @@
         <h2>Meldinger pr. uge</h2>
         <p class="sub">Fordelt på hændelsestype. Før DR's omlægning i april 2026 er vejmeldingernes type udledt af overskriften. Første og sidste uge er kun delvist dækket (lysere).</p>
         <div class="legend" id="weekly-legend"></div>
-        <div id="weekly"></div>
+        <div id="weekly" class="chart"></div>
       </section>
 
       <div class="grid2">
@@ -37,19 +43,26 @@
           <h2>Mest nævnte veje</h2>
           <p class="sub">Vej udtrukket fra overskriften, delt i uheld og øvrige meldinger</p>
           <div class="legend" id="roads-legend"></div>
-          <div id="roads"></div>
+          <div id="roads" class="chart"></div>
         </section>
         <section class="card">
           <h2>Hvor længe varer det?</h2>
           <p class="sub">Minutter fra første melding til "ryddet/genåbnet" (ellers sidste opdatering). Logaritmisk akse.</p>
-          <div id="dur"></div>
+          <div id="dur" class="chart"></div>
         </section>
       </div>
 
       <section class="card">
         <h2>Hvor sker det?</h2>
         <p class="sub">Ét kort pr. hændelsestype. Grå prikker er de øvrige meldinger, til sammenligning.</p>
-        <div class="maps" id="maps"></div>
+        <!-- One placeholder panel per group until the maps are drawn -->
+        <div class="maps" id="maps">
+          <div class="map-panel"><h3>&nbsp;</h3><div class="map-placeholder"></div></div>
+          <div class="map-panel"><h3>&nbsp;</h3><div class="map-placeholder"></div></div>
+          <div class="map-panel"><h3>&nbsp;</h3><div class="map-placeholder"></div></div>
+          <div class="map-panel"><h3>&nbsp;</h3><div class="map-placeholder"></div></div>
+          <div class="map-panel"><h3>&nbsp;</h3><div class="map-placeholder"></div></div>
+        </div>
       </section>
 
       <div class="grid2">
@@ -57,13 +70,13 @@
           <h2>Typer pr. region</h2>
           <p class="sub">Andel af regionens meldinger, blandt de viste typer</p>
           <div class="legend" id="region-legend"></div>
-          <div id="region"></div>
+          <div id="region" class="chart"></div>
         </section>
         <section class="card">
           <h2>Alle hændelsestyper</h2>
           <p class="sub">DR's egen kategori, før gruppering. Vejmeldinger fra før april 2026 havde ingen og er ikke med.</p>
           <div class="legend" id="types-legend"></div>
-          <div id="types"></div>
+          <div id="types" class="chart"></div>
         </section>
       </div>
 
