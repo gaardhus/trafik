@@ -6,7 +6,7 @@ type Row = Record<string, any>;
 interface Data {
   summary: Row;
   group_order: string[];
-  daily: { date: string; group: string; len: number }[];
+  weekly: { week: string; group: string; len: number; partial: boolean; iso_week: number }[];
   heat: { weekday: number; hour: number; len: number }[];
   by_type: { type: string; group: string; len: number }[];
   region_group: { region_name: string; group: string; len: number }[];
@@ -28,7 +28,7 @@ function colors(order: string[]) {
   return { domain: order, range: order.map((_, i) => css(`--series-${i + 1}`)) };
 }
 
-// Category filter shared by every group-coloured view (daily, maps, regions, table).
+// Category filter shared by every group-coloured view (weekly, maps, regions, table).
 // Colours stay bound to the full group order, so hiding one never repaints the rest.
 const hiddenGroups = new Set<string>();
 // Local filter for the roads chart's two parts
@@ -170,32 +170,55 @@ function heat(d: Data) {
   );
 }
 
-function daily(d: Data) {
+const shortDate = (dt: Date, opts: Intl.DateTimeFormatOptions) => dt.toLocaleDateString("da-DK", opts);
+
+function weekLabel(r: { week: string; iso_week: number; partial: boolean }) {
+  const start = new Date(r.week);
+  const end = new Date(start.getTime() + 6 * 86400000);
+  const range = `${shortDate(start, { day: "numeric", month: "short" })}–${shortDate(end, { day: "numeric", month: "short", year: "numeric" })}`;
+  return `Uge ${r.iso_week} · ${range}${r.partial ? " (delvis uge)" : ""}`;
+}
+
+function weekly(d: Data) {
   const c = colors(d.group_order);
-  groupLegend("daily-legend", d);
+  groupLegend("weekly-legend", d);
+  const weeks = [...new Set(d.weekly.map((r) => r.week))];
+  const firstLabel = weeks.findIndex((w) => new Date(w).getDate() <= 7);
   mount(
-    "daily",
+    "weekly",
     Plot.plot({
       ...base(),
-      width: width("daily"),
+      width: width("weekly"),
       height: 270,
       marginTop: 26,
-      x: { type: "band", label: null, domain: [...new Set(d.daily.map((r) => r.date))], tickFormat: (s: string) => (s.endsWith("-01") || s.endsWith("-15") ? new Date(s).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") , tickSize: 0 },
+      x: {
+        type: "band",
+        label: null,
+        domain: weeks,
+        tickSize: 0,
+        // Label the first week of each month; add the year in January and on the first label
+        tickFormat: (w: string, i: number) => {
+          const dt = new Date(w);
+          if (dt.getDate() > 7) return "";
+          return shortDate(dt, dt.getMonth() === 0 || i === firstLabel ? { month: "short", year: "numeric" } : { month: "short" });
+        },
+      },
       y: { label: null, grid: true, nice: true },
       color: c,
       marks: [
-        Plot.barY(d.daily.filter((r) => shown(r.group)), {
-          x: "date",
+        Plot.barY(d.weekly.filter((r) => shown(r.group)), {
+          x: "week",
           y: "len",
           fill: "group",
+          // Partial first/last weeks are faded so their low totals don't read as a dip
+          fillOpacity: (r: Row) => (r.partial ? 0.45 : 1),
           order: d.group_order,
           insetTop: 1,
           insetBottom: 1,
           insetLeft: 1,
           insetRight: 1,
           tip: true,
-          channels: { Dag: "date", Type: "group", Antal: "len" },
-          title: (r: Row) => `${r.date}\n${r.group}: ${r.len}`,
+          title: (r: Row) => `${weekLabel(r as any)}\n${r.group}: ${r.len}`,
         }),
         Plot.ruleY([0], { stroke: css("--baseline") }),
         ...schemaMarker(d),
@@ -206,8 +229,8 @@ function daily(d: Data) {
 
 // Divider at DR's schema change: road categories to its left are inferred
 function schemaMarker(d: Data) {
-  const at = d.summary.schema_change?.slice(0, 10);
-  if (!at || !d.daily.some((r) => r.date === at)) return [];
+  const at = d.summary.schema_change_week;
+  if (!at || !d.weekly.some((r) => r.week === at)) return [];
   return [
     Plot.ruleX([at], { stroke: css("--text-secondary"), strokeWidth: 1 }),
     Plot.text([at], {
@@ -559,7 +582,7 @@ const data: Data = await fetch(`${import.meta.env.BASE_URL}data.json`).then((r) 
 
 // Everything the shared category filter scopes
 function drawGroupViews() {
-  daily(data);
+  weekly(data);
   maps(data);
   regions(data);
   renderTable();

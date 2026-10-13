@@ -6,6 +6,7 @@ Usage: uv run scripts/analyze.py [data/posts.jsonl] [site/public/data.json]
 import json
 import re
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import polars as pl
@@ -132,9 +133,17 @@ def main() -> None:
 
     group_order = ["Uheld", "Havari", "Kø", "Kollektiv trafik", "Andet"]
 
-    daily = (
-        df.group_by("date", "group").len().sort("date")
-        .with_columns(pl.col("date").cast(pl.String))
+    daily = df.group_by("date", "group").len().sort("date")
+    # Weeks start Monday; the first and last weeks may only be partly covered
+    first_day, last_day = df["date"].min(), df["date"].max()
+    weekly = (
+        df.with_columns(week=pl.col("date").dt.truncate("1w"))
+        .group_by("week", "group").len().sort("week")
+        .with_columns(
+            partial=(pl.col("week") < first_day) | (pl.col("week") + pl.duration(days=6) > last_day),
+            iso_week=pl.col("week").dt.week(),
+            week=pl.col("week").cast(pl.String),
+        )
     )
     heat = df.group_by("weekday", "hour").len()
     heat_acc = df.filter(pl.col("group") == "Uheld").group_by("weekday", "hour").len()
@@ -173,6 +182,9 @@ def main() -> None:
         .group_by("road", "direction").len().sort("road", "len", descending=[False, True])
     )
 
+    # Last road post without a DR category; up to here groups are inferred
+    last_inferred = df.filter(pl.col("inferred"))["created"].max()
+
     summary = {
         "n": df.height,
         "start": start.isoformat(),
@@ -184,8 +196,9 @@ def main() -> None:
         "median_updates": df["n_updates"].median(),
         "accident_share": round((df["group"] == "Uheld").mean(), 3),
         "n_inferred": int(df["inferred"].sum()),
-        # Last road post without a DR category; up to here groups are inferred
-        "schema_change": df.filter(pl.col("inferred"))["created"].max().isoformat() if df["inferred"].any() else None,
+        "schema_change": last_inferred.isoformat() if last_inferred else None,
+        # Monday of that week, matching the weekly chart's bands
+        "schema_change_week": (last_inferred.date() - timedelta(days=last_inferred.weekday())).isoformat() if last_inferred else None,
         "busiest_day": daily.group_by("date").agg(pl.col("len").sum()).sort("len", descending=True).row(0, named=True),
     }
 
@@ -201,7 +214,7 @@ def main() -> None:
     out = {
         "summary": summary,
         "group_order": group_order,
-        "daily": recs(daily),
+        "weekly": recs(weekly),
         "heat": recs(heat),
         "heat_accidents": recs(heat_acc),
         "by_type": recs(by_type),
