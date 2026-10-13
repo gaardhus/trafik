@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="da">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DR Trafik — pilotanalyse</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="viz-root">
+      <header>
+        <p class="eyebrow">Pilotanalyse · DR Trafik API</p>
+        <h1>Hvad melder DR's trafikredaktion om?</h1>
+        <p class="lede" id="lede"></p>
+      </header>
+
+      <section class="tiles" id="tiles"></section>
+
+      <section class="card">
+        <h2>Hvornår skrives der?</h2>
+        <p class="sub">Antal nye meldinger pr. ugedag og time (dansk tid). Tomme felter = ingen meldinger.</p>
+        <div id="heat"></div>
+        <p class="note">Ingen meldinger mellem kl. 21 og 04, og få i weekenden. Det ligner redaktionens vagtplan mere end trafikkens rytme, så tallene beskriver DR's dækning og ikke alle hændelser.</p>
+      </section>
+
+      <section class="card">
+        <h2>Meldinger pr. dag</h2>
+        <p class="sub">Fordelt på hændelsestype</p>
+        <div class="legend" id="daily-legend"></div>
+        <div id="daily"></div>
+      </section>
+
+      <div class="grid2">
+        <section class="card">
+          <h2>Mest nævnte veje</h2>
+          <p class="sub">Vej udtrukket fra overskriften, delt i uheld og øvrige meldinger</p>
+          <div class="legend" id="roads-legend"></div>
+          <div id="roads"></div>
+        </section>
+        <section class="card">
+          <h2>Hvor længe varer det?</h2>
+          <p class="sub">Minutter fra første melding til "ryddet/genåbnet" (ellers sidste opdatering). Logaritmisk akse.</p>
+          <div id="dur"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Hvor sker det?</h2>
+        <p class="sub">Ét kort pr. hændelsestype. Grå prikker er de øvrige viste meldinger, til sammenligning.</p>
+        <div class="legend" id="map-legend"></div>
+        <div class="maps" id="maps"></div>
+      </section>
+
+      <div class="grid2">
+        <section class="card">
+          <h2>Typer pr. region</h2>
+          <p class="sub">Andel af regionens meldinger, blandt de viste typer</p>
+          <div class="legend" id="region-legend"></div>
+          <div id="region"></div>
+        </section>
+        <section class="card">
+          <h2>Alle hændelsestyper</h2>
+          <p class="sub">DR's egen kategori, før gruppering</p>
+          <div id="types"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Alle meldinger</h2>
+        <input id="search" type="search" placeholder="Søg i overskrifter, fx E45 eller Storebælt" />
+        <p class="sub" id="table-count"></p>
+        <div class="table-wrap"><table id="table"></table></div>
+      </section>
+
+      <footer>
+        <p>Kilde: api.dr.dk/trafik/posts (concluded=true). Vej og "ryddet"-tidspunkt er udtrukket fra fritekst med regulære udtryk, så de er tilnærmelser.</p>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

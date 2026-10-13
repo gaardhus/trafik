@@ -1,0 +1,9 @@
+[project]
+name = "trafik"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "httpx>=0.28.1",
+    "matplotlib>=3.11.2",
+    "polars>=2.0.0",
+]

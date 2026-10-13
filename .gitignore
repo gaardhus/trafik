@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Bun / Vite
+node_modules/
+site/dist/
+.vite/
+
+# Data: raw scrape and generated report data (recreate with `just scrape` / `just analyze`)
+data/
+site/public/data.json
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
