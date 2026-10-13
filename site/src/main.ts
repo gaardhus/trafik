@@ -28,10 +28,11 @@ function colors(order: string[]) {
   return { domain: order, range: order.map((_, i) => css(`--series-${i + 1}`)) };
 }
 
-// Category filter shared by every group-coloured view (weekly, maps, regions, table).
-// Colours stay bound to the full group order, so hiding one never repaints the rest.
-const hiddenGroups = new Set<string>();
-// Local filter for the roads chart's two parts
+// Each interactive legend filters only its own chart. Colours stay bound to the
+// full group order, so hiding one never repaints the rest.
+const hiddenWeekly = new Set<string>();
+const hiddenRegion = new Set<string>();
+const hiddenTypes = new Set<string>();
 const hiddenRoadParts = new Set<string>();
 
 function swatch(color: string, dot: boolean) {
@@ -48,14 +49,13 @@ function toggleLegend(
   items: { key: string; label: string; color: string }[],
   hidden: Set<string>,
   onChange: () => void,
-  dot = false,
 ) {
   const buttons = items.map(({ key, label, color }) => {
     const b = document.createElement("button");
     b.type = "button";
     b.setAttribute("aria-pressed", String(!hidden.has(key)));
     b.title = hidden.has(key) ? `Vis ${label}` : `Skjul ${label}`;
-    b.append(swatch(color, dot), document.createTextNode(label));
+    b.append(swatch(color, false), document.createTextNode(label));
     b.addEventListener("click", () => {
       if (hidden.has(key)) hidden.delete(key);
       else if (hidden.size < items.length - 1) hidden.add(key);
@@ -83,18 +83,15 @@ function toggleLegend(
   el.replaceChildren(...buttons, ...extra);
 }
 
-function groupLegend(id: string, d: Data, dot = false) {
+function groupLegend(id: string, d: Data, hidden: Set<string>, redraw: () => void) {
   const c = colors(d.group_order);
   toggleLegend(
     document.getElementById(id)!,
     d.group_order.map((g, i) => ({ key: g, label: g, color: c.range[i] })),
-    hiddenGroups,
-    drawGroupViews,
-    dot,
+    hidden,
+    redraw,
   );
 }
-
-const shown = (g: string) => !hiddenGroups.has(g);
 
 function mount(id: string, node: Element) {
   document.getElementById(id)!.replaceChildren(node);
@@ -181,7 +178,7 @@ function weekLabel(r: { week: string; iso_week: number; partial: boolean }) {
 
 function weekly(d: Data) {
   const c = colors(d.group_order);
-  groupLegend("weekly-legend", d);
+  groupLegend("weekly-legend", d, hiddenWeekly, () => weekly(d));
   const weeks = [...new Set(d.weekly.map((r) => r.week))];
   const firstLabel = weeks.findIndex((w) => new Date(w).getDate() <= 7);
   mount(
@@ -206,7 +203,7 @@ function weekly(d: Data) {
       y: { label: null, grid: true, nice: true },
       color: c,
       marks: [
-        Plot.barY(d.weekly.filter((r) => shown(r.group)), {
+        Plot.barY(d.weekly.filter((r) => !hiddenWeekly.has(r.group)), {
           x: "week",
           y: "len",
           fill: "group",
@@ -358,8 +355,8 @@ const denmark = { type: "FeatureCollection", features: geo.features.filter((f: a
 function maps(d: Data) {
   const c = colors(d.group_order);
   const container = document.getElementById("maps")!;
-  const visible = d.group_order.filter(shown);
-  const pts = d.points.filter((p) => shown(p.group));
+  const visible = d.group_order;
+  const pts = d.points;
   // Measure one grid column; panels are drawn at that width
   container.replaceChildren(...visible.map(() => document.createElement("div")));
   const w = (container.firstElementChild as HTMLElement)?.clientWidth || 340;
@@ -487,7 +484,7 @@ function moveTooltip(e: PointerEvent) {
 
 function regions(d: Data) {
   const c = colors(d.group_order);
-  groupLegend("region-legend", d);
+  groupLegend("region-legend", d, hiddenRegion, () => regions(d));
   mount(
     "region",
     Plot.plot({
@@ -499,7 +496,7 @@ function regions(d: Data) {
       y: { label: null },
       color: c,
       marks: [
-        Plot.barX(d.region_group.filter((r) => shown(r.group)), Plot.stackX({
+        Plot.barX(d.region_group.filter((r) => !hiddenRegion.has(r.group)), Plot.stackX({
           offset: "normalize",
           order: d.group_order,
           y: "region_name",
@@ -519,25 +516,37 @@ function regions(d: Data) {
 }
 
 function types(d: Data) {
+  const c = colors(d.group_order);
+  groupLegend("types-legend", d, hiddenTypes, () => types(d));
+  // Hidden groups drop their rows entirely, so the list closes up
+  const rows = d.by_type.filter((r) => !hiddenTypes.has(r.group));
   mount(
     "types",
     Plot.plot({
       ...base(),
       width: width("types"),
-      height: d.by_type.length * 20 + 30,
+      height: rows.length * 20 + 30,
       marginLeft: 100,
       marginRight: 36,
       x: { label: null, axis: null },
-      y: { label: null, domain: d.by_type.map((r) => r.type) },
+      y: { label: null, domain: rows.map((r) => r.type) },
+      color: c,
       marks: [
-        Plot.barX(d.by_type, { y: "type", x: "len", fill: css("--series-1"), insetTop: 3, insetBottom: 3, rx2: 4 } as any),
-        Plot.text(d.by_type, { y: "type", x: "len", text: (r: Row) => String(r.len), dx: 6, textAnchor: "start", fill: css("--text-secondary") }),
+        Plot.barX(rows, {
+          y: "type",
+          x: "len",
+          fill: "group",
+          insetTop: 3,
+          insetBottom: 3,
+          tip: true,
+          title: (r: Row) => `${r.type} · ${TYPE_LABELS[r.type] ?? r.type}\n${r.group}: ${r.len}`,
+        }),
+        Plot.text(rows, { y: "type", x: "len", text: (r: Row) => String(r.len), dx: 6, textAnchor: "start", fill: css("--text-secondary") }),
+        Plot.ruleX([0], { stroke: css("--baseline") }),
       ],
     }),
   );
 }
-
-let renderTable = () => {};
 
 function table(d: Data) {
   const t = document.getElementById("table") as HTMLTableElement;
@@ -551,13 +560,10 @@ function table(d: Data) {
   const search = document.getElementById("search") as HTMLInputElement;
   const count = document.getElementById("table-count")!;
   const rows = [...d.points].sort((a, b) => b.created.localeCompare(a.created));
-  renderTable = () => {
+  const render = () => {
     const ql = search.value.toLowerCase();
-    const match = rows.filter(
-      (p) => shown(p.group) && (!ql || p.title.toLowerCase().includes(ql) || (p.road ?? "").toLowerCase().includes(ql)),
-    );
-    const scope = hiddenGroups.size ? ` · skjult: ${[...hiddenGroups].join(", ")}` : "";
-    count.textContent = `Viser ${match.length} af ${rows.length} meldinger${scope}`;
+    const match = rows.filter((p) => !ql || p.title.toLowerCase().includes(ql) || (p.road ?? "").toLowerCase().includes(ql));
+    count.textContent = `Viser ${match.length} af ${rows.length} meldinger`;
     body.replaceChildren(
       ...match.map((p) => {
         const tr = document.createElement("tr");
@@ -574,26 +580,20 @@ function table(d: Data) {
       }),
     );
   };
-  renderTable();
-  search.addEventListener("input", renderTable);
+  render();
+  search.addEventListener("input", render);
 }
 
 const data: Data = await fetch(`${import.meta.env.BASE_URL}data.json`).then((r) => r.json());
 
-// Everything the shared category filter scopes
-function drawGroupViews() {
-  weekly(data);
-  maps(data);
-  regions(data);
-  renderTable();
-}
-
 const drawCharts = () => {
   heat(data);
+  weekly(data);
   roads(data);
   durations(data);
+  maps(data);
+  regions(data);
   types(data);
-  drawGroupViews();
 };
 tiles(data);
 table(data);
