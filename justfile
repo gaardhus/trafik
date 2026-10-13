@@ -7,9 +7,13 @@ install:
     uv sync
     cd site && bun install
 
-# Fetch posts (newest first) into data/posts.jsonl; skips posts already saved
+# Page new posts (newest first) into data/posts.jsonl; stops once caught up
 scrape pages="100" *args:
     uv run scripts/scrape.py --pages {{pages}} {{args}}
+
+# Fetch the whole archive in one request and add anything missing
+scrape-full:
+    uv run scripts/scrape.py --full
 
 # Build site/public/data.json from the raw posts
 analyze:
