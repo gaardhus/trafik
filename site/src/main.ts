@@ -268,7 +268,7 @@ function weekly(d: Data) {
       ...base(),
       width: width("weekly"),
       height: 270,
-      marginTop: 26,
+      marginTop: 30,
       x: {
         type: "band",
         label: null,
@@ -314,7 +314,8 @@ function schemaMarker(d: Data) {
     Plot.text([at], {
       x: (v: string) => v,
       frameAnchor: "top",
-      dy: -4,
+      lineAnchor: "bottom",
+      dy: -8,
       dx: -6,
       textAnchor: "end",
       fill: css("--text-secondary"),
@@ -323,7 +324,8 @@ function schemaMarker(d: Data) {
     Plot.text([at], {
       x: (v: string) => v,
       frameAnchor: "top",
-      dy: -4,
+      lineAnchor: "bottom",
+      dy: -8,
       dx: 6,
       textAnchor: "start",
       fill: css("--text-secondary"),
