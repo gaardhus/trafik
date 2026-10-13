@@ -43,44 +43,84 @@ function swatch(color: string, dot: boolean) {
   return i;
 }
 
-/** Legend whose items toggle membership in `hidden`; at least one item always stays visible. */
-function toggleLegend(
-  el: HTMLElement,
-  items: { key: string; label: string; color: string }[],
-  hidden: Set<string>,
-  onChange: () => void,
-) {
-  const buttons = items.map(({ key, label, color }) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.setAttribute("aria-pressed", String(!hidden.has(key)));
-    b.title = hidden.has(key) ? `Vis ${label}` : `Skjul ${label}`;
-    b.append(swatch(color, false), document.createTextNode(label));
-    b.addEventListener("click", () => {
-      if (hidden.has(key)) hidden.delete(key);
-      else if (hidden.size < items.length - 1) hidden.add(key);
-      onChange();
+type LegendItem = { key: string; label: string; color: string };
+interface LegendState {
+  keys: string;
+  hidden: Set<string>;
+  onChange: () => void;
+  buttons: Map<string, HTMLButtonElement>;
+  reset: HTMLButtonElement;
+  pending?: number;
+}
+const legends = new WeakMap<HTMLElement, LegendState>();
+// How long a single click waits to see if it becomes a double-click
+const DOUBLE_CLICK_MS = 200;
+
+/**
+ * Legend whose items toggle membership in `hidden`; at least one item always
+ * stays visible. Double-click shows only that item (again: show all).
+ * A mouse click waits DOUBLE_CLICK_MS before toggling, and a second click
+ * cancels it, so a double-click never flashes the single-click state.
+ * Buttons are built once and updated in place so the click count carries
+ * across both clicks.
+ */
+function toggleLegend(el: HTMLElement, items: LegendItem[], hidden: Set<string>, onChange: () => void) {
+  const keys = items.map((i) => i.key).join("|");
+  let st = legends.get(el);
+  if (!st || st.keys !== keys) {
+    const state: LegendState = {
+      keys,
+      hidden,
+      onChange,
+      buttons: new Map(),
+      reset: Object.assign(document.createElement("button"), { type: "button", className: "reset", textContent: "Vis alle" }),
+    };
+    for (const { key, label } of items) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.append(swatch("", false), document.createTextNode(label));
+      const toggle = () => {
+        const h = state.hidden;
+        if (h.has(key)) h.delete(key);
+        else if (h.size < items.length - 1) h.add(key);
+        state.onChange();
+      };
+      const solo = () => {
+        const h = state.hidden;
+        const others = items.filter((i) => i.key !== key).map((i) => i.key);
+        const alreadySolo = !h.has(key) && others.every((k) => h.has(k));
+        h.clear();
+        if (!alreadySolo) others.forEach((k) => h.add(k));
+        state.onChange();
+      };
+      b.addEventListener("click", (e) => {
+        clearTimeout(state.pending);
+        if (e.detail === 0) toggle(); // keyboard: no double-click to wait for
+        else if (e.detail === 1) state.pending = window.setTimeout(toggle, DOUBLE_CLICK_MS);
+        else if (e.detail === 2) solo();
+      });
+      state.buttons.set(key, b);
+    }
+    state.reset.addEventListener("click", () => {
+      state.hidden.clear();
+      state.onChange();
     });
-    return b;
-  });
-  const extra: HTMLElement[] = [];
-  if (hidden.size) {
-    const reset = document.createElement("button");
-    reset.type = "button";
-    reset.className = "reset";
-    reset.textContent = "Vis alle";
-    reset.addEventListener("click", () => {
-      hidden.clear();
-      onChange();
-    });
-    extra.push(reset);
-  } else {
-    const hint = document.createElement("span");
-    hint.className = "hint";
-    hint.textContent = "Klik for at skjule";
-    extra.push(hint);
+    el.replaceChildren(...state.buttons.values(), state.reset);
+    legends.set(el, state);
+    st = state;
   }
-  el.replaceChildren(...buttons, ...extra);
+  st.hidden = hidden;
+  st.onChange = onChange;
+  for (const { key, label, color } of items) {
+    const b = st.buttons.get(key)!;
+    const on = !hidden.has(key);
+    b.setAttribute("aria-pressed", String(on));
+    b.title = `${on ? "Skjul" : "Vis"} ${label} · dobbeltklik for kun at vise ${label}`;
+    const sw = b.querySelector("i")!;
+    sw.style.background = color;
+    sw.style.borderColor = color;
+  }
+  st.reset.hidden = hidden.size === 0;
 }
 
 function groupLegend(id: string, d: Data, hidden: Set<string>, redraw: () => void) {

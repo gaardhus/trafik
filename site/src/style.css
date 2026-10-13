@@ -92,14 +92,14 @@ h3 { font-size: 14px; margin: 20px 0 6px; font-weight: 600; color: var(--text-se
 .legend i.dot { border-radius: 50%; }
 .legend button {
   font: inherit; color: inherit; background: none; border: 0; border-radius: 6px;
-  padding: 4px 8px; cursor: pointer;
+  padding: 4px 8px; cursor: pointer; user-select: none;
 }
+.legend [hidden] { display: none; }
 .legend button:hover { background: var(--grid); }
 .legend button:focus-visible { outline: 2px solid var(--series-1); outline-offset: 1px; }
 .legend button[aria-pressed="false"] { color: var(--text-muted); }
 .legend button[aria-pressed="false"] i { background: transparent !important; }
 .legend button.reset { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
-.legend .hint { color: var(--text-muted); margin-left: 4px; }
 
 .maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px 16px; }
 @media (max-width: 900px) { .maps { grid-template-columns: repeat(2, 1fr); } }
