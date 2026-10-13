@@ -1,6 +1,6 @@
 """Paginate DR's traffic feed backwards in time using sortTime as the cursor.
 
-Usage: uv run scripts/scrape.py --pages 100 [--out data/posts.jsonl] [--before ISO]
+Usage: uv run scripts/scrape.py --pages 100 [--out data/posts.jsonl] [--before ISO] [--resume]
 """
 
 import argparse
@@ -20,19 +20,30 @@ HEADERS = {
 }
 
 
+def parse(ts: str) -> datetime:
+    return datetime.fromisoformat(ts)
+
+
+def fmt(dt: datetime) -> str:
+    return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pages", type=int, default=100)
     ap.add_argument("--out", type=Path, default=Path("data/posts.jsonl"))
     ap.add_argument("--before", help="start cursor (ISO timestamp); default = newest")
     ap.add_argument("--delay", type=float, default=0.5)
+    ap.add_argument("--resume", action="store_true", help="start from the oldest post already saved")
     args = ap.parse_args()
 
-    seen: set[str] = set()
-    if args.out.exists():
-        seen = {json.loads(line)["_id"] for line in args.out.open()}
+    saved = [json.loads(line) for line in args.out.open()] if args.out.exists() else []
+    seen = {p["_id"] for p in saved}
 
     cursor = args.before
+    if args.resume and saved:
+        cursor = min((p["createdTime"] for p in saved), key=parse)
+        print(f"resuming from {cursor} ({len(saved)} posts saved)")
     new = 0
     with httpx.Client(headers=HEADERS, timeout=30) as client, args.out.open("a") as f:
         for page in range(args.pages):
@@ -52,13 +63,15 @@ def main() -> None:
             new += len(fresh)
             # The API filters on createdTime <= lastPostDate but sorts by sortTime
             # (last update). Long-running incidents created before the cursor but
-            # updated after it keep occupying the page. When that stalls progress,
-            # step the cursor just below the newest createdTime to evict them.
-            if fresh:
-                cursor = posts[-1]["sortTime"]
+            # updated after it keep occupying the page. Follow the last sortTime
+            # while it moves the cursor back; only when it doesn't (a stall) step
+            # just below the newest createdTime to evict the sticky posts.
+            last = posts[-1]["sortTime"]
+            if cursor is None or parse(last) < parse(cursor):
+                cursor = last
             else:
-                newest = max(datetime.fromisoformat(p["createdTime"]) for p in posts)
-                cursor = (newest - timedelta(milliseconds=1)).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+                newest = max(parse(p["createdTime"]) for p in posts)
+                cursor = fmt(newest - timedelta(milliseconds=1))
             if page % 10 == 0:
                 print(f"page {page}: +{len(fresh)} (total new {new}), cursor {cursor}")
             time.sleep(args.delay)
