@@ -41,10 +41,19 @@ interface Data {
   }[];
 }
 
-const css = (name: string) =>
-  getComputedStyle(document.querySelector(".viz-root")!)
-    .getPropertyValue(name)
-    .trim();
+// Cached per theme: reading computed style between redraws forces a style
+// recalc of the whole page, ~35k map dots included
+const cssCache = new Map<string, string>();
+const css = (name: string) => {
+  let v = cssCache.get(name);
+  if (v == null) {
+    v = getComputedStyle(document.querySelector(".viz-root")!)
+      .getPropertyValue(name)
+      .trim();
+    cssCache.set(name, v);
+  }
+  return v;
+};
 const fmt = (n: number) =>
   n.toLocaleString(t.locale, { maximumFractionDigits: 1 });
 
@@ -186,8 +195,13 @@ function mount(id: string, node: Element) {
   document.getElementById(id)!.replaceChildren(node);
 }
 
+// Measuring forces a layout of the whole page, so drawCharts() measures every
+// chart before drawing any; a lone redraw (legend click) measures live
+let widths: Map<string, number> | null = null;
+const measure = (id: string) =>
+  document.getElementById(id)!.clientWidth || 600;
 function width(id: string) {
-  return document.getElementById(id)!.clientWidth || 600;
+  return widths?.get(id) ?? measure(id);
 }
 
 // Shared look: recessive axes, text tokens for ink
@@ -303,8 +317,15 @@ function heat(d: Data) {
   );
 }
 
-const shortDate = (dt: Date, opts: Intl.DateTimeFormatOptions) =>
-  dt.toLocaleDateString(t.locale, opts);
+// toLocaleDateString builds a new formatter on every call, which adds up over
+// every bar's title in the weekly chart
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+function shortDate(dt: Date, opts: Intl.DateTimeFormatOptions) {
+  const key = t.locale + JSON.stringify(opts);
+  let f = dateFormats.get(key);
+  if (!f) dateFormats.set(key, (f = new Intl.DateTimeFormat(t.locale, opts)));
+  return f.format(dt);
+}
 
 function weekLabel(r: { week: string; iso_week: number; partial: boolean }) {
   const start = new Date(r.week);
@@ -591,10 +612,14 @@ const denmark = {
   features: geo.features.filter((f: any) => f.properties.name === "Denmark"),
 } as any;
 
+const CONTEXT_LAYERS = 8;
+
 // Small multiples: one panel per group, so each keeps its own colour and no
 // scatter needs more than one hue (all-pairs colour separation doesn't apply).
+// Each panel draws every point (~35k dots in all), so redrawing is slow: colours
+// are CSS variables, so a theme switch repaints without a redraw, and
+// mapLabels() swaps the language in place.
 function maps(d: Data) {
-  const c = colors(d.group_order);
   const container = document.getElementById("maps")!;
   const visible = d.group_order;
   const pts = d.points;
@@ -605,6 +630,7 @@ function maps(d: Data) {
   const panels = visible.map(() => document.createElement("div"));
 
   visible.forEach((g, idx) => {
+    const color = `var(--series-${d.group_order.indexOf(g) + 1})`;
     const own = pts.filter((p) => p.group === g);
     const others = pts.filter((p) => p.group !== g);
     const panel = panels[idx];
@@ -614,11 +640,10 @@ function maps(d: Data) {
     const count = document.createElement("span");
     count.className = "count";
     count.textContent = String(own.length);
-    h.append(
-      swatch(c.range[d.group_order.indexOf(g)], true),
-      document.createTextNode(group(g)),
-      count,
-    );
+    const name = document.createElement("span");
+    name.dataset.group = g;
+    name.textContent = group(g);
+    h.append(swatch(color, true), name, count);
 
     const plot = Plot.plot({
       ...base(),
@@ -637,25 +662,30 @@ function maps(d: Data) {
         },
       },
       marks: [
-        Plot.geo(neighbours, { fill: css("--land-other") }),
+        Plot.geo(neighbours, { fill: "var(--land-other)" }),
         Plot.geo(denmark, {
-          fill: css("--land"),
-          stroke: css("--baseline"),
+          fill: "var(--land)",
+          stroke: "var(--baseline)",
           strokeWidth: 0.5,
         }),
-        Plot.dot(others, {
-          x: "lon",
-          y: "lat",
-          r: 1.5,
-          fill: css("--text-muted"),
-          fillOpacity: 0.35,
-        }),
+        // Context dots as a few paths instead of a circle each. Dots within a
+        // path merge, so they're dealt round-robin over several: overlaps
+        // across paths still stack, and busy roads still read darker.
+        Plot.geo(
+          Array.from({ length: CONTEXT_LAYERS }, (_, i) => ({
+            type: "MultiPoint",
+            coordinates: others
+              .filter((_, j) => j % CONTEXT_LAYERS === i)
+              .map((p) => [p.lon, p.lat]),
+          })),
+          { r: 1.5, fill: "var(--text-muted)", fillOpacity: 0.35 },
+        ),
         Plot.dot(own, {
           x: "lon",
           y: "lat",
           r: 4,
-          fill: c.range[d.group_order.indexOf(g)],
-          stroke: css("--surface-1"),
+          fill: color,
+          stroke: "var(--surface-1)",
           strokeWidth: 1.5,
         }),
         // Hovered dot lifts: larger, with an ink ring
@@ -666,14 +696,13 @@ function maps(d: Data) {
             y: "lat",
             maxRadius: 20,
             r: 6.5,
-            fill: c.range[d.group_order.indexOf(g)],
-            stroke: css("--text-primary"),
+            fill: color,
+            stroke: "var(--text-primary)",
             strokeWidth: 2,
           }),
         ),
       ],
     });
-    const color = c.range[d.group_order.indexOf(g)];
     plot.addEventListener("input", () => {
       const p = (plot as any).value as Point | null;
       if (p) showTooltip(pointTooltip(p, color));
@@ -684,6 +713,12 @@ function maps(d: Data) {
     panel.replaceChildren(h, plot);
   });
   container.replaceChildren(...panels);
+}
+
+function mapLabels() {
+  document
+    .querySelectorAll<HTMLElement>("#maps h3 [data-group]")
+    .forEach((el) => (el.textContent = group(el.dataset.group!)));
 }
 
 type Point = Data["points"][number];
@@ -904,6 +939,11 @@ function table(d: Data) {
     body.append(...match.slice(shown, shown + CHUNK).map(row));
     shown = Math.min(shown + CHUNK, match.length);
   };
+  const setCount = () =>
+    (count.textContent = t.showing(
+      match.length.toLocaleString(t.locale),
+      rows.length.toLocaleString(t.locale),
+    ));
   const render = () => {
     const ql = search.value.toLowerCase();
     match = rows.filter(
@@ -912,10 +952,7 @@ function table(d: Data) {
         p.title.toLowerCase().includes(ql) ||
         (p.road ?? "").toLowerCase().includes(ql),
     );
-    count.textContent = t.showing(
-      match.length.toLocaleString(t.locale),
-      rows.length.toLocaleString(t.locale),
-    );
+    setCount();
     body.replaceChildren();
     wrap.scrollTop = 0;
     shown = 0;
@@ -931,11 +968,31 @@ function table(d: Data) {
     )
       more();
   });
+  // Rebuilds the rows already shown, without the scroll reset (setting
+  // scrollTop forces a layout)
   return () => {
     header();
-    render();
+    setCount();
+    body.replaceChildren(...match.slice(0, shown).map(row));
   };
 }
+
+// Maps are left out: see maps()
+const drawCharts = (d: Data) => {
+  widths = new Map(
+    ["heat", "weekly", "roads", "dur", "region", "types"].map((id) => [
+      id,
+      measure(id),
+    ]),
+  );
+  heat(d);
+  weekly(d);
+  roads(d);
+  durations(d);
+  regions(d);
+  types(d);
+  widths = null;
+};
 
 // Before the data wait, so the static text is in the right language on first paint
 applyStatic();
@@ -944,19 +1001,11 @@ const data: Data = await fetch(`${import.meta.env.BASE_URL}data.json`).then(
   (r) => r.json(),
 );
 
-const drawCharts = () => {
-  heat(data);
-  weekly(data);
-  roads(data);
-  durations(data);
-  maps(data);
-  regions(data);
-  types(data);
-};
 tiles(data);
 heatNote(data);
 const redrawTable = table(data);
-drawCharts();
+drawCharts(data);
+maps(data);
 
 document.getElementById("lang")!.addEventListener("click", (e) => {
   const b = (e.target as Element).closest("button");
@@ -966,14 +1015,16 @@ document.getElementById("lang")!.addEventListener("click", (e) => {
   tiles(data);
   heatNote(data);
   redrawTable();
-  drawCharts();
+  drawCharts(data);
+  mapLabels();
 });
 
 // Redraw on theme change and resize (colors are read from CSS vars at draw time)
 const setTheme = (theme: string) => {
   document.documentElement.dataset.theme = theme;
+  cssCache.clear();
   applyStatic();
-  drawCharts();
+  drawCharts(data);
 };
 document.getElementById("theme")!.addEventListener("click", () => {
   const next =
@@ -988,5 +1039,8 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
 let raf = 0;
 addEventListener("resize", () => {
   cancelAnimationFrame(raf);
-  raf = requestAnimationFrame(drawCharts);
+  raf = requestAnimationFrame(() => {
+    drawCharts(data);
+    maps(data);
+  });
 });
