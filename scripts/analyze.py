@@ -123,8 +123,7 @@ def main() -> None:
         .head(20)
     )
     durations = (
-        df.filter(pl.col("group") != "Andet")
-        .select("group", "type", "title", minutes=pl.coalesce("clear_min", "life_min"))
+        df.select("group", "type", "title", minutes=pl.coalesce("clear_min", "life_min"))
         .filter(pl.col("minutes") > 0)
     )
     dur_summary = (

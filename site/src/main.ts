@@ -255,20 +255,37 @@ function roads(d: Data) {
   );
 }
 
+const DUR_TICKS = [5, 15, 30, 60, 240, 1440];
+
 function durations(d: Data) {
-  const order = d.dur_summary.map((r) => r.group);
+  const c = colors(d.group_order);
+  const surface = css("--surface-1");
   mount(
     "dur",
     Plot.plot({
       ...base(),
       width: width("dur"),
-      height: 260,
+      height: 300,
       marginLeft: 120,
       marginRight: 30,
-      x: { type: "log", label: "minutter", grid: true, domain: [3, 3000], ticks: [5, 15, 30, 60, 240, 1440], tickFormat: (m: number) => (m >= 60 ? `${m / 60} t` : `${m}`) },
-      y: { label: null, domain: order },
+      x: { type: "log", domain: [1, 3000], clamp: true },
+      y: { label: null, domain: d.group_order },
+      color: c,
       marks: [
-        Plot.boxX(d.durations.filter((r) => r.minutes >= 3), { x: "minutes", y: "group", fill: css("--seq-light"), stroke: css("--text-secondary"), r: 2 }),
+        // Grid and axis first so they sit behind the boxes. Explicit axis: Plot's log scale blanks some labels from a ticks array
+        Plot.gridX(DUR_TICKS, { stroke: css("--grid"), strokeOpacity: 1 }),
+        Plot.axisX(DUR_TICKS, { label: "minutter", tickSpacing: 20, tickFormat: (m: number) => (m >= 60 ? `${m / 60} t` : `${m}`) }),
+        Plot.boxX(d.durations, {
+          x: "minutes",
+          y: "group",
+          fill: "group",
+          stroke: css("--text-muted"),
+          r: 2,
+          insetTop: 4,
+          insetBottom: 4,
+        }),
+        // Median as a surface-coloured cut through the box, legible on every hue
+        Plot.tickX(d.dur_summary, { x: "median", y: "group", stroke: surface, strokeWidth: 2, insetTop: 4, insetBottom: 4 }),
         Plot.tip(d.dur_summary, Plot.pointerY({
           y: "group",
           x: "median",
