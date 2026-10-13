@@ -50,6 +50,7 @@ interface LegendState {
   onChange: () => void;
   buttons: Map<string, HTMLButtonElement>;
   reset: HTMLButtonElement;
+  doubleClick: boolean;
   pending?: number;
 }
 const legends = new WeakMap<HTMLElement, LegendState>();
@@ -64,7 +65,13 @@ const DOUBLE_CLICK_MS = 200;
  * Buttons are built once and updated in place so the click count carries
  * across both clicks.
  */
-function toggleLegend(el: HTMLElement, items: LegendItem[], hidden: Set<string>, onChange: () => void) {
+function toggleLegend(
+  el: HTMLElement,
+  items: LegendItem[],
+  hidden: Set<string>,
+  onChange: () => void,
+  { doubleClick = true } = {},
+) {
   const keys = items.map((i) => i.key).join("|");
   let st = legends.get(el);
   if (!st || st.keys !== keys) {
@@ -73,6 +80,7 @@ function toggleLegend(el: HTMLElement, items: LegendItem[], hidden: Set<string>,
       hidden,
       onChange,
       buttons: new Map(),
+      doubleClick,
       reset: Object.assign(document.createElement("button"), { type: "button", className: "reset", textContent: "Vis alle" }),
     };
     for (const { key, label } of items) {
@@ -95,7 +103,7 @@ function toggleLegend(el: HTMLElement, items: LegendItem[], hidden: Set<string>,
       };
       b.addEventListener("click", (e) => {
         clearTimeout(state.pending);
-        if (e.detail === 0) toggle(); // keyboard: no double-click to wait for
+        if (!doubleClick || e.detail === 0) toggle(); // keyboard: no double-click to wait for
         else if (e.detail === 1) state.pending = window.setTimeout(toggle, DOUBLE_CLICK_MS);
         else if (e.detail === 2) solo();
       });
@@ -115,7 +123,7 @@ function toggleLegend(el: HTMLElement, items: LegendItem[], hidden: Set<string>,
     const b = st.buttons.get(key)!;
     const on = !hidden.has(key);
     b.setAttribute("aria-pressed", String(on));
-    b.title = `${on ? "Skjul" : "Vis"} ${label} · dobbeltklik for kun at vise ${label}`;
+    b.title = `${on ? "Skjul" : "Vis"} ${label}` + (st.doubleClick ? ` · dobbeltklik for kun at vise ${label}` : "");
     const sw = b.querySelector("i")!;
     sw.style.background = color;
     sw.style.borderColor = color;
@@ -123,13 +131,14 @@ function toggleLegend(el: HTMLElement, items: LegendItem[], hidden: Set<string>,
   st.reset.hidden = hidden.size === 0;
 }
 
-function groupLegend(id: string, d: Data, hidden: Set<string>, redraw: () => void) {
+function groupLegend(id: string, d: Data, hidden: Set<string>, redraw: () => void, opts?: { doubleClick?: boolean }) {
   const c = colors(d.group_order);
   toggleLegend(
     document.getElementById(id)!,
     d.group_order.map((g, i) => ({ key: g, label: g, color: c.range[i] })),
     hidden,
     redraw,
+    opts,
   );
 }
 
@@ -524,7 +533,8 @@ function moveTooltip(e: PointerEvent) {
 
 function regions(d: Data) {
   const c = colors(d.group_order);
-  groupLegend("region-legend", d, hiddenRegion, () => regions(d));
+  // Shares of 100 %: showing a single group would just fill every bar
+  groupLegend("region-legend", d, hiddenRegion, () => regions(d), { doubleClick: false });
   mount(
     "region",
     Plot.plot({
