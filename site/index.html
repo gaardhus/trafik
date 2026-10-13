@@ -11,50 +11,54 @@
   <body>
     <main class="viz-root">
       <header>
-        <h1>Hvor og hvornår går trafikken i stå?</h1>
+        <h1 data-i18n="title">Hvor og hvornår går trafikken i stå?</h1>
         <p class="lede" id="lede"></p>
+        <div class="lang" id="lang" role="group" aria-label="Sprog / Language">
+          <button type="button" value="da" lang="da" aria-pressed="true">Dansk</button>
+          <button type="button" value="en" lang="en" aria-pressed="false">English</button>
+        </div>
       </header>
 
       <!-- Labels are static; main.ts fills in value and hint -->
       <section class="tiles" id="tiles">
-        <div class="tile"><div class="label">Meldinger</div><div class="value"></div><div class="hint"></div></div>
-        <div class="tile"><div class="label">Pr. hverdag / weekenddag</div><div class="value"></div><div class="hint"></div></div>
-        <div class="tile"><div class="label">Andel uheld</div><div class="value"></div><div class="hint"></div></div>
-        <div class="tile"><div class="label">Median varighed, uheld</div><div class="value"></div><div class="hint"></div></div>
+        <div class="tile"><div class="label" data-i18n="tileReports">Meldinger</div><div class="value"></div><div class="hint"></div></div>
+        <div class="tile"><div class="label" data-i18n="tilePerDay">Pr. hverdag / weekenddag</div><div class="value"></div><div class="hint"></div></div>
+        <div class="tile"><div class="label" data-i18n="tileAccidentShare">Andel uheld</div><div class="value"></div><div class="hint"></div></div>
+        <div class="tile"><div class="label" data-i18n="tileAccidentDuration">Median varighed, uheld</div><div class="value"></div><div class="hint"></div></div>
       </section>
 
       <section class="card">
-        <h2>Hvornår skrives der?</h2>
-        <p class="sub">Nye meldinger pr. ugedag og time (dansk tid). Tomme felter betyder ingen meldinger.</p>
+        <h2 data-i18n="heatTitle">Hvornår skrives der?</h2>
+        <p class="sub" data-i18n="heatSub">Nye meldinger pr. ugedag og time (dansk tid). Tomme felter betyder ingen meldinger.</p>
         <div class="legend" id="heat-legend"></div>
         <div id="heat" class="chart"></div>
         <p class="note" id="heat-note"></p>
       </section>
 
       <section class="card">
-        <h2>Meldinger pr. uge</h2>
-        <p class="sub">Fordelt på hændelsestype. Før DR's omlægning i april 2026 er vejmeldingernes type udledt af overskriften. Første og sidste uge er kun delvist med (lysere).</p>
+        <h2 data-i18n="weeklyTitle">Meldinger pr. uge</h2>
+        <p class="sub" data-i18n="weeklySub">Fordelt på hændelsestype. Før DR's omlægning i april 2026 er vejmeldingernes type udledt af overskriften. Første og sidste uge er kun delvist med (lysere).</p>
         <div class="legend" id="weekly-legend"></div>
         <div id="weekly" class="chart"></div>
       </section>
 
       <div class="grid2">
         <section class="card">
-          <h2>Mest nævnte veje</h2>
-          <p class="sub">Vejen er udtrukket af overskriften og delt i uheld og øvrige meldinger.</p>
+          <h2 data-i18n="roadsTitle">Mest nævnte veje</h2>
+          <p class="sub" data-i18n="roadsSub">Vejen er udtrukket af overskriften og delt i uheld og øvrige meldinger.</p>
           <div class="legend" id="roads-legend"></div>
           <div id="roads" class="chart"></div>
         </section>
         <section class="card">
-          <h2>Hvor længe varer det?</h2>
-          <p class="sub">Tid fra første melding, til vejen meldes ryddet eller genåbnet (ellers til sidste opdatering). Logaritmisk akse.</p>
+          <h2 data-i18n="durTitle">Hvor længe varer det?</h2>
+          <p class="sub" data-i18n="durSub">Tid fra første melding, til vejen meldes ryddet eller genåbnet (ellers til sidste opdatering). Logaritmisk akse.</p>
           <div id="dur" class="chart"></div>
         </section>
       </div>
 
       <section class="card">
-        <h2>Hvor sker det?</h2>
-        <p class="sub">Ét kort pr. hændelsestype. De grå prikker er de øvrige meldinger, til sammenligning.</p>
+        <h2 data-i18n="mapsTitle">Hvor sker det?</h2>
+        <p class="sub" data-i18n="mapsSub">Ét kort pr. hændelsestype. De grå prikker er de øvrige meldinger, til sammenligning.</p>
         <!-- One placeholder panel per group until the maps are drawn -->
         <div class="maps" id="maps">
           <div class="map-panel"><h3>&nbsp;</h3><div class="map-placeholder"></div></div>
@@ -67,28 +71,28 @@
 
       <div class="grid2">
         <section class="card">
-          <h2>Typer pr. region</h2>
-          <p class="sub">Andel af regionens meldinger blandt de viste typer.</p>
+          <h2 data-i18n="regionTitle">Typer pr. region</h2>
+          <p class="sub" data-i18n="regionSub">Andel af regionens meldinger blandt de viste typer.</p>
           <div class="legend" id="region-legend"></div>
           <div id="region" class="chart"></div>
         </section>
         <section class="card">
-          <h2>Alle hændelsestyper</h2>
-          <p class="sub">DR's egne kategorier, før de er samlet i grupper. Vejmeldinger fra før april 2026 har ingen kategori og er ikke med.</p>
+          <h2 data-i18n="typesTitle">Alle hændelsestyper</h2>
+          <p class="sub" data-i18n="typesSub">DR's egne kategorier, før de er samlet i grupper. Vejmeldinger fra før april 2026 har ingen kategori og er ikke med.</p>
           <div class="legend" id="types-legend"></div>
           <div id="types" class="chart"></div>
         </section>
       </div>
 
       <section class="card">
-        <h2>Alle meldinger</h2>
-        <input id="search" type="search" placeholder="Søg i overskrifter, fx E45 eller Storebælt" />
+        <h2 data-i18n="tableTitle">Alle meldinger</h2>
+        <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Søg i overskrifter, fx E45 eller Storebælt" />
         <p class="sub" id="table-count"></p>
         <div class="table-wrap"><table id="table"></table></div>
       </section>
 
       <footer>
-        <p>Kilde: DR's trafikmeldinger (api.dr.dk/trafik/posts), kun afsluttede meldinger. Siden opdateres dagligt. Vej og ryddet-tidspunkt er udtrukket af fritekst med regulære udtryk og er derfor tilnærmelser. Indtil 14. april 2026 skelnede DR kun mellem privat og offentlig trafik, så vejmeldingernes type er udledt af overskriften med nøgleord. Holdt op mod DR's egne kategorier efter omlægningen rammer det rigtigt i ca. 80 % af tilfældene (uheld og havari ca. 93 %, kø og andet væsentligt lavere).</p>
+        <p data-i18n="footer">Kilde: DR's trafikmeldinger (api.dr.dk/trafik/posts), kun afsluttede meldinger. Siden opdateres dagligt. Vej og ryddet-tidspunkt er udtrukket af fritekst med regulære udtryk og er derfor tilnærmelser. Indtil 14. april 2026 skelnede DR kun mellem privat og offentlig trafik, så vejmeldingernes type er udledt af overskriften med nøgleord. Holdt op mod DR's egne kategorier efter omlægningen rammer det rigtigt i ca. 80 % af tilfældene (uheld og havari ca. 93 %, kø og andet væsentligt lavere).</p>
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>

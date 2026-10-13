@@ -1,5 +1,6 @@
 import * as Plot from "@observablehq/plot";
 import geo from "./geo.json";
+import { applyStatic, group, lang, region, setLang, t, type, type Lang } from "./i18n";
 
 type Row = Record<string, any>;
 interface Data {
@@ -40,12 +41,12 @@ interface Data {
   }[];
 }
 
-const WEEKDAYS = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
 const css = (name: string) =>
   getComputedStyle(document.querySelector(".viz-root")!)
     .getPropertyValue(name)
     .trim();
-const fmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 1 });
+const fmt = (n: number) =>
+  n.toLocaleString(t.locale, { maximumFractionDigits: 1 });
 
 function colors(order: string[]) {
   return {
@@ -99,7 +100,7 @@ function toggleLegend(
   onChange: () => void,
   { doubleClick = true } = {},
 ) {
-  const keys = items.map((i) => i.key).join("|");
+  const keys = items.map((i) => `${i.key}:${i.label}`).join("|");
   let st = legends.get(el);
   if (!st || st.keys !== keys) {
     const state: LegendState = {
@@ -111,7 +112,7 @@ function toggleLegend(
       reset: Object.assign(document.createElement("button"), {
         type: "button",
         className: "reset",
-        textContent: "Vis alle",
+        textContent: t.showAll,
       }),
     };
     for (const { key, label } of items) {
@@ -156,9 +157,7 @@ function toggleLegend(
     const b = st.buttons.get(key)!;
     const on = !hidden.has(key);
     b.setAttribute("aria-pressed", String(on));
-    b.title =
-      `${on ? "Skjul" : "Vis"} ${label}` +
-      (st.doubleClick ? ` · dobbeltklik for kun at vise ${label}` : "");
+    b.title = t.legendTitle(on, label, st.doubleClick);
     const sw = b.querySelector("i")!;
     sw.style.background = color;
     sw.style.borderColor = color;
@@ -176,7 +175,7 @@ function groupLegend(
   const c = colors(d.group_order);
   toggleLegend(
     document.getElementById(id)!,
-    d.group_order.map((g, i) => ({ key: g, label: g, color: c.range[i] })),
+    d.group_order.map((g, i) => ({ key: g, label: group(g), color: c.range[i] })),
     hidden,
     redraw,
     opts,
@@ -215,18 +214,18 @@ function tiles(d: Data) {
   const nWeeks = s.days / 7;
   // In the order of the tiles in index.html, which holds the labels
   const items = [
-    { value: s.n.toLocaleString("da-DK"), hint: `${Math.round(s.days)} dage` },
+    { value: s.n.toLocaleString(t.locale), hint: t.days(Math.round(s.days)) },
     {
-      value: `${fmt.format(weekdays / (nWeeks * 5))} / ${fmt.format(weekend / (nWeeks * 2))}`,
-      hint: "gennemsnit",
+      value: `${fmt(weekdays / (nWeeks * 5))} / ${fmt(weekend / (nWeeks * 2))}`,
+      hint: t.average,
     },
     {
-      value: `${Math.round(s.accident_share * 100)} %`,
-      hint: "af alle meldinger",
+      value: t.pct(Math.round(s.accident_share * 100)),
+      hint: t.ofAllReports,
     },
     {
       value: `${Math.round(acc?.median ?? 0)} min`,
-      hint: `90 % inden ${Math.round(acc?.p90 ?? 0)} min`,
+      hint: t.p90Within(Math.round(acc?.p90 ?? 0)),
     },
   ];
   document.querySelectorAll("#tiles .tile").forEach((el, i) => {
@@ -234,7 +233,7 @@ function tiles(d: Data) {
     el.querySelector(".hint")!.textContent = items[i].hint;
   });
   const date = (iso: string) =>
-    new Date(iso).toLocaleDateString("da-DK", {
+    new Date(iso).toLocaleDateString(t.locale, {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -242,10 +241,15 @@ function tiles(d: Data) {
   const withinHour =
     d.durations.filter((r) => r.minutes < 60).length / d.durations.length;
   const longest = d.dur_summary.reduce((a, r) => (r.median > a.median ? r : a));
-  document.getElementById("lede")!.textContent =
-    `${s.n.toLocaleString("da-DK")} afsluttede trafikmeldinger fra DR i perioden ${date(s.start)} til ${date(s.end)}. ` +
-    `${Math.round(s.accident_share * 100)} % er uheld, og ${Math.round(withinHour * 100)} % er afsluttet inden for en time. ` +
-    `Meldinger om ${longest.group.toLowerCase()} varer længst, med en median på ${duration(longest.median)}.`;
+  document.getElementById("lede")!.textContent = t.lede(
+    s.n.toLocaleString(t.locale),
+    date(s.start),
+    date(s.end),
+    Math.round(s.accident_share * 100),
+    Math.round(withinHour * 100),
+    group(longest.group).toLowerCase(),
+    duration(longest.median),
+  );
 }
 
 function heat(d: Data) {
@@ -277,13 +281,13 @@ function heat(d: Data) {
       y: {
         label: null,
         domain: [1, 2, 3, 4, 5, 6, 7],
-        tickFormat: (d: number) => WEEKDAYS[d - 1],
+        tickFormat: (d: number) => t.weekdays[d - 1],
       },
       color: {
         type: "linear",
         range: [css("--seq-lo"), css("--seq-hi")],
         legend: true,
-        label: "Meldinger",
+        label: t.reports,
       },
       marks: [
         Plot.cell([...cells.values()], {
@@ -292,8 +296,7 @@ function heat(d: Data) {
           fill: "len",
           rx: 3,
           tip: { format: { x: false, y: false, fill: false } },
-          title: (r: Row) =>
-            `${WEEKDAYS[r.weekday - 1]} kl. ${String(r.hour).padStart(2, "0")}–${String(r.hour + 1).padStart(2, "0")}\n${r.len} meldinger`,
+          title: (r: Row) => t.heatCell(t.weekdays[r.weekday - 1], r.hour, r.len),
         }),
       ],
     }),
@@ -301,13 +304,13 @@ function heat(d: Data) {
 }
 
 const shortDate = (dt: Date, opts: Intl.DateTimeFormatOptions) =>
-  dt.toLocaleDateString("da-DK", opts);
+  dt.toLocaleDateString(t.locale, opts);
 
 function weekLabel(r: { week: string; iso_week: number; partial: boolean }) {
   const start = new Date(r.week);
   const end = new Date(start.getTime() + 6 * 86400000);
   const range = `${shortDate(start, { day: "numeric", month: "short" })}–${shortDate(end, { day: "numeric", month: "short", year: "numeric" })}`;
-  return `Uge ${r.iso_week} · ${range}${r.partial ? " (delvis uge)" : ""}`;
+  return t.week(r.iso_week, range, r.partial);
 }
 
 const hh = (h: number) => String(h).padStart(2, "0");
@@ -336,12 +339,13 @@ function heatNote(d: Data) {
     if (len > best.len) best = { start: s, len };
   }
   const night = best.len
-    ? ` Mellem kl. ${hh(best.start)} og ${hh((best.start + best.len) % 24)} er der næsten ingen meldinger.`
+    ? t.heatNight(best.start, (best.start + best.len) % 24)
     : "";
-  document.getElementById("heat-note")!.textContent =
-    `På hverdage topper meldingerne i myldretiden, omkring kl. ${peak(5, 12)} og kl. ${peak(12, 20)}. ` +
-    `I weekenden er der langt færre, spredt over dagen.${night} ` +
-    `Mønsteret afspejler både trafikken og redaktionens vagter, og de to kan ikke skilles ad i data.`;
+  document.getElementById("heat-note")!.textContent = t.heatNote(
+    peak(5, 12),
+    peak(12, 20),
+    night,
+  );
 }
 
 function weekly(d: Data) {
@@ -390,7 +394,8 @@ function weekly(d: Data) {
             insetLeft: 1,
             insetRight: 1,
             tip: true,
-            title: (r: Row) => `${weekLabel(r as any)}\n${r.group}: ${r.len}`,
+            title: (r: Row) =>
+              `${weekLabel(r as any)}\n${group(r.group)}: ${r.len}`,
           },
         ),
         Plot.ruleY([0], { stroke: css("--baseline") }),
@@ -414,7 +419,7 @@ function schemaMarker(d: Data) {
       dx: -6,
       textAnchor: "end",
       fill: css("--text-secondary"),
-      text: () => "← type udledt af overskrift",
+      text: () => t.inferredFromTitle,
     }),
     Plot.text([at], {
       x: (v: string) => v,
@@ -424,7 +429,7 @@ function schemaMarker(d: Data) {
       dx: 6,
       textAnchor: "start",
       fill: css("--text-secondary"),
-      text: () => "DR's kategorier →",
+      text: () => t.drCategories,
     }),
   ];
 }
@@ -452,8 +457,8 @@ function roads(d: Data) {
   toggleLegend(
     document.getElementById("roads-legend")!,
     [
-      { key: "Uheld", label: "Uheld", color: acc },
-      { key: "Øvrige", label: "Øvrige meldinger", color: rest },
+      { key: "Uheld", label: group("Uheld"), color: acc },
+      { key: "Øvrige", label: t.otherReports, color: rest },
     ],
     hiddenRoadParts,
     () => roads(d),
@@ -489,7 +494,13 @@ function roads(d: Data) {
           insetRight: 1,
           tip: true,
           title: (r: Row) =>
-            `${r.road}\n${r.part}: ${r.n} af ${r.total}\nMedian varighed: ${r.med == null ? "–" : Math.round(r.med) + " min"}`,
+            t.roadTip(
+              r.road,
+              group(r.part),
+              r.n,
+              r.total,
+              r.med == null ? "–" : Math.round(r.med) + " min",
+            ),
         }),
         Plot.text(totals, {
           y: "road",
@@ -520,7 +531,7 @@ function durations(d: Data) {
       marginRight: 30,
       // Symlog: logarithmic for long durations, linear near zero so 0 has a place
       x: { type: "symlog", constant: 5, domain: [0, 3000], clamp: true },
-      y: { label: null, domain: d.group_order },
+      y: { label: null, domain: d.group_order, tickFormat: group },
       color: c,
       marks: [
         // Grid and axis first so they sit behind the boxes
@@ -529,7 +540,7 @@ function durations(d: Data) {
         Plot.axisX(DUR_TICKS, {
           label: null,
           tickFormat: (m: number) =>
-            m === 0 ? "0" : m >= 60 ? `${m / 60} t` : `${m} min`,
+            m === 0 ? "0" : m >= 60 ? `${m / 60} ${t.hours}` : `${m} min`,
         }),
         Plot.boxX(d.durations, {
           x: "minutes",
@@ -555,7 +566,14 @@ function durations(d: Data) {
             y: "group",
             x: "median",
             title: (r: Row) =>
-              `${r.group} (n=${r.n})\nMedian: ${Math.round(r.median)} min\n25–75 %: ${Math.round(r.p25)}–${Math.round(r.p75)} min\n90 %: ${Math.round(r.p90)} min`,
+              t.durTip(
+                group(r.group),
+                r.n,
+                Math.round(r.median),
+                Math.round(r.p25),
+                Math.round(r.p75),
+                Math.round(r.p90),
+              ),
           }),
         ),
       ],
@@ -598,7 +616,7 @@ function maps(d: Data) {
     count.textContent = String(own.length);
     h.append(
       swatch(c.range[d.group_order.indexOf(g)], true),
-      document.createTextNode(g),
+      document.createTextNode(group(g)),
       count,
     );
 
@@ -670,34 +688,11 @@ function maps(d: Data) {
 
 type Point = Data["points"][number];
 
-const TYPE_LABELS: Record<string, string> = {
-  ACCIDENT: "Uheld",
-  BREAKDOWN: "Havareret køretøj",
-  LORRY: "Lastbil",
-  AUTOMOBILE: "Bil",
-  MC: "Motorcykel",
-  QUEUE: "Kø",
-  TRAIN: "Tog",
-  LIGHTRAIL: "Letbane",
-  METRO: "Metro",
-  BUS: "Bus",
-  FERRY: "Færge",
-  BLOCKED: "Spærret vej",
-  CLEANUP: "Oprydning",
-  FIRE: "Brand",
-  WIND: "Blæst",
-  ROADWORK: "Vejarbejde",
-  SLIPPERY: "Glat vej / spild",
-  FLOOD: "Oversvømmelse",
-  PIG: "Dyr på vejen",
-  EMERGENCY: "Politi / beredskab",
-};
-
 function duration(min: number) {
   if (min < 60) return `${Math.round(min)} min`;
   const h = Math.floor(min / 60);
   const m = Math.round(min % 60);
-  return m ? `${h} t ${m} min` : `${h} t`;
+  return m ? `${h} ${t.hours} ${m} min` : `${h} ${t.hours}`;
 }
 
 const tooltip = Object.assign(document.createElement("div"), {
@@ -722,23 +717,21 @@ function pointTooltip(p: Point, color: string) {
   key.append(
     line,
     document.createTextNode(
-      p.inferred
-        ? `${p.group} · udledt af overskrift`
-        : (TYPE_LABELS[p.type] ?? p.type),
+      p.inferred ? `${group(p.group)} · ${t.inferred}` : type(p.type),
     ),
   );
 
-  const when = new Date(p.created.replace(" ", "T")).toLocaleString("da-DK", {
+  const when = new Date(p.created.replace(" ", "T")).toLocaleString(t.locale, {
     weekday: "short",
     day: "numeric",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
   });
-  const rows: [string, string][] = [["Tidspunkt", when]];
-  if (p.minutes != null) rows.push(["Varighed", duration(p.minutes)]);
-  if (p.road) rows.push(["Vej", p.road]);
-  rows.push(["Region", p.region_name], ["Opdateringer", String(p.n_updates)]);
+  const rows: [string, string][] = [[t.time, when]];
+  if (p.minutes != null) rows.push([t.duration, duration(p.minutes)]);
+  if (p.road) rows.push([t.road, p.road]);
+  rows.push([t.region, region(p.region_name)], [t.updates, String(p.n_updates)]);
 
   const grid = el("dl", "tt-grid");
   for (const [k, v] of rows) grid.append(el("dt", "", k), el("dd", "", v));
@@ -782,10 +775,10 @@ function regions(d: Data) {
       x: {
         label: null,
         percent: true,
-        tickFormat: (v: number) => `${v} %`,
+        tickFormat: (v: number) => t.pct(v),
         grid: true,
       },
-      y: { label: null },
+      y: { label: null, tickFormat: region },
       color: c,
       marks: [
         Plot.barX(
@@ -801,7 +794,8 @@ function regions(d: Data) {
             insetTop: 6,
             insetBottom: 6,
             tip: true,
-            title: (r: Row) => `${r.region_name}\n${r.group}: ${r.len}`,
+            title: (r: Row) =>
+              `${region(r.region_name)}\n${group(r.group)}: ${r.len}`,
           }),
         ),
         Plot.ruleX([0], { stroke: css("--baseline") }),
@@ -827,7 +821,7 @@ function types(d: Data) {
       y: {
         label: null,
         domain: rows.map((r) => r.type),
-        tickFormat: (t: string) => TYPE_LABELS[t] ?? t,
+        tickFormat: type,
       },
       color: c,
       marks: [
@@ -839,7 +833,7 @@ function types(d: Data) {
           insetBottom: 3,
           tip: true,
           title: (r: Row) =>
-            `${TYPE_LABELS[r.type] ?? r.type} (${r.type})\n${r.group}: ${r.len}`,
+            `${type(r.type)} (${r.type})\n${group(r.group)}: ${r.len}`,
         }),
         Plot.text(rows, {
           y: "type",
@@ -855,27 +849,31 @@ function types(d: Data) {
   );
 }
 
+/** Sets up the table; returns a function that redraws it in the current language. */
 function table(d: Data) {
-  const t = document.getElementById("table") as HTMLTableElement;
-  const head = t.createTHead().insertRow();
-  for (const [h, title] of [
-    ["Tid", ""],
-    ["Overskrift", ""],
-    ["Type", ""],
-    ["Region", ""],
-    ["Opd.", "Antal opdateringer"],
-    ["Varighed", ""],
-  ]) {
-    const th = document.createElement("th");
-    th.textContent = h;
-    if (title) th.title = title;
-    if (h === "Opd." || h === "Varighed") th.className = "num";
-    head.append(th);
-  }
-  const body = t.createTBody();
+  const tbl = document.getElementById("table") as HTMLTableElement;
+  const head = tbl.createTHead().insertRow();
+  const header = () =>
+    head.replaceChildren(
+      ...[
+        [t.colTime, "", ""],
+        [t.colTitle, "", ""],
+        [t.colType, "", ""],
+        [t.region, "", ""],
+        [t.colUpdates, t.colUpdatesTitle, "num"],
+        [t.duration, "", "num"],
+      ].map(([h, title, cls]) => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        if (title) th.title = title;
+        if (cls) th.className = cls;
+        return th;
+      }),
+    );
+  const body = tbl.createTBody();
   const search = document.getElementById("search") as HTMLInputElement;
   const count = document.getElementById("table-count")!;
-  const wrap = t.parentElement!;
+  const wrap = tbl.parentElement!;
   const rows = [...d.points].sort((a, b) => b.created.localeCompare(a.created));
   const row = (p: Point) => {
     const tr = document.createElement("tr");
@@ -883,10 +881,10 @@ function table(d: Data) {
       [p.created, "muted"],
       [p.title, ""],
       [
-        p.inferred ? `${p.group} (udledt)` : (TYPE_LABELS[p.type] ?? p.type),
+        p.inferred ? `${group(p.group)} (${t.inferredShort})` : type(p.type),
         "muted",
       ],
-      [p.region_name, "muted"],
+      [region(p.region_name), "muted"],
       [String(p.n_updates), "num"],
       [p.minutes == null ? "–" : duration(p.minutes), "num"],
     ];
@@ -914,12 +912,16 @@ function table(d: Data) {
         p.title.toLowerCase().includes(ql) ||
         (p.road ?? "").toLowerCase().includes(ql),
     );
-    count.textContent = `Viser ${match.length.toLocaleString("da-DK")} af ${rows.length.toLocaleString("da-DK")} meldinger`;
+    count.textContent = t.showing(
+      match.length.toLocaleString(t.locale),
+      rows.length.toLocaleString(t.locale),
+    );
     body.replaceChildren();
     wrap.scrollTop = 0;
     shown = 0;
     more();
   };
+  header();
   render();
   search.addEventListener("input", render);
   wrap.addEventListener("scroll", () => {
@@ -929,7 +931,14 @@ function table(d: Data) {
     )
       more();
   });
+  return () => {
+    header();
+    render();
+  };
 }
+
+// Before the data wait, so the static text is in the right language on first paint
+applyStatic();
 
 const data: Data = await fetch(`${import.meta.env.BASE_URL}data.json`).then(
   (r) => r.json(),
@@ -946,8 +955,19 @@ const drawCharts = () => {
 };
 tiles(data);
 heatNote(data);
-table(data);
+const redrawTable = table(data);
 drawCharts();
+
+document.getElementById("lang")!.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest("button");
+  if (!b || b.value === lang) return;
+  setLang(b.value as Lang);
+  applyStatic();
+  tiles(data);
+  heatNote(data);
+  redrawTable();
+  drawCharts();
+});
 
 // Redraw on theme change and resize (colors are read from CSS vars at draw time)
 matchMedia("(prefers-color-scheme: dark)").addEventListener(

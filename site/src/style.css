@@ -59,7 +59,14 @@ body {
   margin: 0 auto;
   padding: 40px 24px 64px;
 }
-header { margin-bottom: 24px; }
+header { margin-bottom: 24px; display: grid; grid-template-columns: 1fr auto; column-gap: 16px; align-items: start; }
+header .lede { grid-column: 1 / -1; }
+/* Language toggle: a two-button segmented control beside the title */
+.lang { grid-row: 1; grid-column: 2; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; padding: 2px; background: var(--surface-1); margin-top: 4px; }
+.lang button { font: inherit; font-size: 12px; color: var(--text-secondary); background: none; border: 0; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.lang button:hover { color: var(--text-primary); }
+.lang button[aria-pressed="true"] { background: var(--grid); color: var(--text-primary); font-weight: 600; }
+.lang button:focus-visible { outline: 2px solid var(--series-1); outline-offset: 1px; }
 h1 { font-size: 30px; margin: 0 0 8px; font-weight: 650; }
 .lede { color: var(--text-secondary); font-size: 16px; max-width: 70ch; margin: 0; line-height: 1.5; }
 h2 { font-size: 17px; margin: 0 0 2px; font-weight: 600; }
