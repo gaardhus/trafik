@@ -1,0 +1,51 @@
+# Daily: fetch DR's whole traffic archive, rebuild the report, deploy to Pages.
+# Nothing is stored between runs; each build starts from a fresh --full sweep.
+name: Deploy report
+
+on:
+  schedule:
+    - cron: "17 4 * * *" # daily 04:17 UTC, off the :00 rush
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Scrape
+        run: uv run scripts/scrape.py --full
+      - name: Analyze
+        run: uv run scripts/analyze.py data/posts.jsonl site/public/data.json
+      - name: Build
+        working-directory: site
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
